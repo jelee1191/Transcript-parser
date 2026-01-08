@@ -719,7 +719,7 @@ function updateResultsDisplay() {
                     <button class="btn btn-small btn-primary copy-btn" data-index="${index}">Copy</button>
                 </div>
                 <div class="result-preview" id="preview-${index}">
-                    ${escapeHtml(cleanOutput(result.output))}
+                    ${convertMarkdownToHtmlPreview(cleanOutput(result.output))}
                 </div>
             ` : ''}
         </div>
@@ -813,6 +813,23 @@ function convertMarkdownToHtml(text) {
     // Fallback: just wrap plain text if marked isn't loaded
     const escaped = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     return `<html><body>${escaped}</body></html>`;
+}
+
+function convertMarkdownToHtmlPreview(text) {
+    // Use marked.js library for proper markdown parsing (for inline preview)
+    if (typeof marked !== 'undefined') {
+        // Configure marked to handle line breaks properly
+        marked.setOptions({
+            breaks: true,  // Convert \n to <br>
+            gfm: true      // GitHub Flavored Markdown
+        });
+
+        return marked.parse(text);
+    }
+
+    // Fallback: just escape and preserve line breaks
+    const escaped = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    return escaped;
 }
 
 // Listen for prompt changes to update button state

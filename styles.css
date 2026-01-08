@@ -375,13 +375,69 @@ header h1 {
     padding: 10px;
     background: white;
     border-radius: 6px;
-    white-space: pre-wrap;
     max-height: 200px;
     overflow-y: auto;
     font-size: 0.85rem;
     line-height: 1.5;
     color: #2d3748;
     display: none;
+}
+
+.result-preview h1,
+.result-preview h2,
+.result-preview h3 {
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    font-weight: 600;
+}
+
+.result-preview h1 {
+    font-size: 1.2em;
+}
+
+.result-preview h2 {
+    font-size: 1.1em;
+}
+
+.result-preview h3 {
+    font-size: 1em;
+}
+
+.result-preview ul,
+.result-preview ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.result-preview li {
+    margin: 0.25em 0;
+}
+
+.result-preview p {
+    margin: 0.5em 0;
+}
+
+.result-preview code {
+    background: #f7fafc;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.result-preview pre {
+    background: #f7fafc;
+    padding: 0.8em;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.result-preview strong {
+    font-weight: 600;
+}
+
+.result-preview em {
+    font-style: italic;
 }
 
 .result-preview.visible {
