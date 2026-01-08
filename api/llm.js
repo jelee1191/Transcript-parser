@@ -58,8 +58,8 @@ async function callOpenAI(prompt, text, modelName) {
 }
 
 async function callAnthropic(prompt, text, modelName) {
-    // Use the latest stable Claude 3.5 Sonnet model
-    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+    // Use the latest available Claude 3.5 Sonnet model (June 2024 release)
+    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620';
 
     // Check if API key is set
     if (!process.env.ANTHROPIC_API_KEY) {
