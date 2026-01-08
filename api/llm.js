@@ -58,7 +58,8 @@ async function callOpenAI(prompt, text, modelName) {
 }
 
 async function callAnthropic(prompt, text, modelName) {
-    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+    // Use the latest stable Claude 3.5 Sonnet model
+    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
     // Check if API key is set
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -90,6 +91,19 @@ async function callAnthropic(prompt, text, modelName) {
     }
 
     const data = await response.json();
+    console.log('Anthropic API success response:', JSON.stringify(data, null, 2));
+
+    // Verify response structure
+    if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {
+        console.error('Unexpected Anthropic response structure:', data);
+        throw new Error('Anthropic API returned unexpected response structure');
+    }
+
+    if (!data.content[0].text) {
+        console.error('No text in Anthropic response:', data.content[0]);
+        throw new Error('Anthropic API response missing text content');
+    }
+
     return data.content[0].text;
 }
 
