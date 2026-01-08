@@ -719,7 +719,7 @@ function updateResultsDisplay() {
                     <button class="btn btn-small btn-primary copy-btn" data-index="${index}">Copy</button>
                 </div>
                 <div class="result-preview" id="preview-${index}">
-                    ${escapeHtml(result.output.trim())}
+                    ${escapeHtml(cleanOutput(result.output))}
                 </div>
             ` : ''}
         </div>
@@ -735,6 +735,32 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function cleanOutput(text) {
+    // First, trim the entire string
+    let cleaned = text.trim();
+
+    // Split into lines
+    const lines = cleaned.split('\n');
+
+    // Find the first non-empty line and remove its leading whitespace
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().length > 0) {
+            // Get the leading whitespace of the first non-empty line
+            const leadingWhitespace = lines[i].match(/^\s*/)[0];
+
+            // Remove this amount of leading whitespace from all lines
+            return lines.map(line => {
+                if (line.startsWith(leadingWhitespace)) {
+                    return line.slice(leadingWhitespace.length);
+                }
+                return line;
+            }).join('\n').trim();
+        }
+    }
+
+    return cleaned;
 }
 
 function togglePreview(index) {
