@@ -241,6 +241,28 @@ header h1 {
     grid-column: 1 / -1;
 }
 
+.model-settings {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.model-setting-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.model-setting-group label {
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.9rem;
+}
+
 .control-buttons {
     display: flex;
     gap: 12px;
@@ -554,5 +576,9 @@ header h1 {
     .auth-section {
         justify-content: center;
         width: 100%;
+    }
+
+    .model-settings {
+        grid-template-columns: 1fr;
     }
 }

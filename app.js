@@ -5,11 +5,7 @@ const API_CONFIG = {
     // Backend API endpoint (works for both local dev and Vercel deployment)
     backendUrl: window.location.hostname === 'localhost'
         ? 'http://localhost:3000/api/llm'  // Local development
-        : '/api/llm',  // Production (Vercel serverless function)
-
-    // Provider selection
-    provider: 'gemini',  // 'openai', 'anthropic', or 'gemini'
-    modelName: 'gemini-3-flash-preview'  // Optional: Leave empty for default, or specify custom model
+        : '/api/llm'  // Production (Vercel serverless function)
 };
 
 // Prevent double-loading
@@ -56,6 +52,10 @@ const parseBtn = document.getElementById('parseBtn');
 const clearBtn = document.getElementById('clearBtn');
 const resultsContainer = document.getElementById('resultsContainer');
 const toast = document.getElementById('toast');
+
+// Model settings DOM Elements
+const providerSelect = document.getElementById('providerSelect');
+const modelInput = document.getElementById('modelInput');
 
 // Auth DOM Elements
 const authModal = document.getElementById('authModal');
@@ -589,16 +589,20 @@ async function handleDeletePrompt() {
 
 // LLM API Integration
 async function callLLM(prompt, text) {
+    // Get selected provider and model from UI
+    const provider = providerSelect.value;
+    const modelName = modelInput.value.trim();
+
     const response = await fetch(API_CONFIG.backendUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            provider: API_CONFIG.provider,
+            provider: provider,
             prompt: prompt,
             text: text,
-            modelName: API_CONFIG.modelName
+            modelName: modelName
         })
     });
 

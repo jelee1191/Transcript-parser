@@ -73,6 +73,21 @@
             <!-- Area 3: Control & Results Zone -->
             <div class="panel results-panel">
                 <h2>Process & Results</h2>
+                <div class="model-settings">
+                    <div class="model-setting-group">
+                        <label for="providerSelect">LLM Provider</label>
+                        <select id="providerSelect" class="form-control">
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI GPT</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                    </div>
+                    <div class="model-setting-group">
+                        <label for="modelInput">Model Name (optional)</label>
+                        <input type="text" id="modelInput" class="form-control" placeholder="e.g., gpt-4-turbo, claude-3-5-sonnet-20241022">
+                        <span class="form-hint">Leave blank for default model</span>
+                    </div>
+                </div>
                 <div class="control-buttons">
                     <button class="btn btn-primary" id="parseBtn">Parse Transcripts</button>
                     <button class="btn btn-secondary" id="clearBtn">Clear All</button>
