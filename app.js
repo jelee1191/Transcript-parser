@@ -23,10 +23,10 @@ window.transcriptParserLoaded = true;
 const SUPABASE_URL = window.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 
-// Initialize Supabase client
-let supabaseClientClient = null;
+// Initialize Supabase client (make it globally accessible in this script)
+var supabaseClient = null;
 if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
-    supabaseClientClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log('✅ Supabase initialized successfully');
 } else {
     console.warn('⚠️ Supabase not initialized. Auth features disabled.');
@@ -37,11 +37,11 @@ if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY)
 // ============================================
 
 // State
-let uploadedFiles = [];
-let savedPrompts = [];
-let currentResults = [];
-let currentUser = null;
-let isAuthMode = 'login'; // 'login' or 'signup'
+var uploadedFiles = [];
+var savedPrompts = [];
+var currentResults = [];
+var currentUser = null;
+var isAuthMode = 'login'; // 'login' or 'signup'
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
