@@ -68,11 +68,9 @@ async function callAnthropic(prompt, text, modelName) {
 
     const requestBody = {
         model,
-        max_tokens: 8192, // Increased for longer responses
+        max_tokens: 8192,
         messages: [{ role: 'user', content: `${prompt}\n\n${text}` }]
     };
-
-    console.log('Anthropic request:', { model, apiKeySet: !!process.env.ANTHROPIC_API_KEY });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -91,7 +89,6 @@ async function callAnthropic(prompt, text, modelName) {
     }
 
     const data = await response.json();
-    console.log('Anthropic API success response:', JSON.stringify(data, null, 2));
 
     // Verify response structure
     if (!data.content || !Array.isArray(data.content) || data.content.length === 0) {

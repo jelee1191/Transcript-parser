@@ -102,12 +102,23 @@ Beyond the original 8 phases, significant enhancements have been added:
 - **Files:** `api/llm.js`, `api/config.js`, `vercel.json`
 
 #### Phase 11: Multi-Provider UI Selection ✅
-- Dropdown selector for LLM provider (Gemini/OpenAI/Claude)
+- Dropdown selector for LLM provider (Gemini/OpenAI)
 - Custom model name input field with placeholders
 - Real-time provider switching without code changes
 - Default model fallback for each provider
 - Responsive model settings panel
 - **Files:** `index.html:76-90`, `app.js:56-58`, `app.js:591-616`, `styles.css:244-264`
+- **Note:** Claude/Anthropic hidden from UI due to Vercel timeout issues (backend code intact)
+
+#### Phase 12: Performance & UX Optimizations ✅
+- **Parallel Processing:** Process all PDFs concurrently instead of sequentially (~10x faster)
+- **Compact UI:** Reduced all element sizes by 25-35% to fit on single screen
+- **Dark Mode:** Changed from purple gradient to dark gray (#1a1a1a) background
+- **HTML Preview:** Results render as formatted HTML instead of plain markdown
+- **Cleaned UI:** Removed subtitle, simplified provider names, neutral button colors
+- **Smart Text Cleaning:** cleanOutput() function removes LLM response indentation artifacts
+- **Header Centering:** CSS Grid ensures title stays centered with auth buttons
+- **Files:** `app.js:629-665` (parallel), `styles.css` (compact/dark), `app.js:740-764, 818-833` (text cleaning/HTML)
 
 ## Technical Architecture
 
@@ -129,9 +140,9 @@ Beyond the original 8 phases, significant enhancements have been added:
 - Supabase JS Client v2 - Authentication and database
 
 **APIs:**
-- OpenAI Chat Completions API
-- Anthropic Messages API
-- Google Gemini Generative Language API
+- OpenAI Chat Completions API (gpt-5.1 default)
+- Google Gemini Generative Language API (gemini-3-pro-preview default)
+- Anthropic Messages API (claude-sonnet-4-5-20250929 - hidden from UI, backend functional)
 - Supabase Auth & Database API
 
 **Storage:**
@@ -145,10 +156,10 @@ Beyond the original 8 phases, significant enhancements have been added:
 ```
 transcript-parser/
 ├── index.html          # Main HTML structure (169 lines)
-├── styles.css          # Complete styling (584 lines)
-├── app.js              # Frontend application logic (791 lines)
+├── styles.css          # Complete styling (602 lines) - includes dark mode, compact UI, HTML preview styles
+├── app.js              # Frontend application logic (839 lines) - includes parallel processing, text cleaning
 ├── api/
-│   ├── llm.js         # Vercel serverless function - LLM API proxy (110 lines)
+│   ├── llm.js         # Vercel serverless function - LLM API proxy (118 lines)
 │   └── config.js      # Vercel serverless function - Supabase config (16 lines)
 ├── vercel.json        # Vercel deployment configuration
 ├── .env.example       # Environment variables template
@@ -171,11 +182,11 @@ transcript-parser/
    - Architecture: Frontend → Vercel Function → LLM API
    - Zero client-side key exposure
 
-3. **Sequential vs Parallel Processing**
-   - Chosen: Sequential (one PDF at a time)
-   - Why: Simpler to implement, avoids rate limiting issues
-   - Trade-off: Slower for large batches
-   - Future enhancement: Parallel processing with rate limiting
+3. **Parallel Processing** ✅ IMPLEMENTED
+   - Implementation: All PDFs processed concurrently with Promise.all()
+   - Why: ~10x faster for typical 10-file batches
+   - Performance: Total time = longest single file (not sum of all files)
+   - User case: ~10 files per batch, <50/day, single user - no rate limit concerns
 
 4. **State Management**
    - Chosen: Plain JavaScript objects (`uploadedFiles`, `savedPrompts`, `currentResults`, `currentUser`)
@@ -191,8 +202,14 @@ transcript-parser/
 6. **Backend API Proxy**
    - Chosen: Vercel Serverless Functions
    - Why: Zero-cost hosting, automatic scaling, secure environment variables
-   - Trade-off: 10-second timeout on free tier (can upgrade for longer)
+   - Trade-off: 60-second timeout (Pro tier) - causes issues with Claude on long transcripts
    - Keeps API keys completely secure from client access
+
+7. **UI Design Philosophy**
+   - Dark mode: Professional dark gray (#1a1a1a) background
+   - Compact sizing: Everything reduced 25-35% to fit on single screen without scrolling
+   - Minimal branding: Removed subtitle, simplified provider names
+   - Neutral colors: No red warnings, gray buttons throughout
 
 ## Code Organization
 
@@ -252,27 +269,33 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 ## Feature Highlights
 
 ### 1. Multi-Provider LLM Support with UI Selection
-Unlike the spec which suggested choosing one provider, the implementation supports **three** providers with **runtime selection**:
-- OpenAI (default: `gpt-4-turbo`)
-- Anthropic (default: `claude-3-5-sonnet-20241022`)
-- Google Gemini (default: `gemini-2.0-flash-exp`)
+The implementation supports **three** providers (two visible in UI) with **runtime selection**:
+- **OpenAI** (default: `gpt-5.1`) - Visible in UI ✅
+- **Google Gemini** (default: `gemini-3-pro-preview`) - Visible in UI ✅
+- **Anthropic** (default: `claude-sonnet-4-5-20250929`) - Hidden from UI ⚠️
 
 **UI Features:**
-- Dropdown selector in "Process & Results" panel
-- Custom model name input (e.g., "gpt-4o", "claude-opus-4-5-20251101", "gemini-2.0-flash-thinking-exp")
+- Dropdown selector with Gemini and OpenAI options
+- Custom model name input field
 - Default model used if input is empty
 - Selection sent to backend with each request
+
+**Claude/Anthropic Status:**
+- Backend code fully functional and maintained
+- Hidden from UI due to Vercel timeout issues (>60s for long transcripts)
+- Can be re-enabled by adding back to dropdown
+- Tokens are consumed but responses timeout on Vercel Pro tier
 
 **Configuration (Vercel Environment Variables):**
 ```bash
 GEMINI_API_KEY=your-key-here
 OPENAI_API_KEY=sk-your-key-here
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here  # Optional, backend code exists
 
 # Optional model overrides
-GEMINI_MODEL=gemini-2.0-flash-exp
-OPENAI_MODEL=gpt-4-turbo
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+GEMINI_MODEL=gemini-3-pro-preview
+OPENAI_MODEL=gpt-5.1
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ```
 
 ### 2. Smart Prompt Management with Cloud Sync
@@ -306,12 +329,31 @@ Uses marked.js to convert LLM output (often markdown-formatted) to HTML:
 - Falls back gracefully to plain text if HTML copy fails
 
 ### 5. Real-Time Status Updates
-Each file shows detailed progress:
+Each file shows detailed progress (all files update in real-time simultaneously):
 - "Pending..." (gray)
 - "Extracting text..." (orange)
 - "Processing with LLM..." (orange)
 - "Complete" (green)
 - "Error: [message]" (red)
+
+### 6. Parallel Processing Performance
+**Before (Sequential):**
+- 10 files × 30 seconds each = 300 seconds (5 minutes)
+- Files processed one at a time
+
+**After (Parallel):**
+- Max(all files) = ~30 seconds total
+- All files processed simultaneously
+- ~10x speed improvement for typical batches
+
+### 7. HTML Preview Rendering
+**Features:**
+- Markdown parsed to formatted HTML using marked.js
+- Headers rendered with proper sizing
+- Lists display as bullet points
+- Bold, italic, code blocks properly styled
+- Scrollable preview with max height
+- Matches clipboard copy formatting
 
 ## Implementation vs Specification
 
@@ -320,12 +362,16 @@ Each file shows detailed progress:
 1. **User Authentication System** - Supabase login/signup with cloud-synced prompts
 2. **Backend API Proxy** - Secure serverless architecture with environment variables
 3. **Multi-Provider UI Selection** - Runtime provider/model switching without code changes
-4. **Gemini API Support** - Added third LLM provider option
-5. **Markdown-to-HTML Conversion** - Better clipboard formatting than spec required
-6. **Active Prompt Highlighting** - Visual feedback for selected prompt
-7. **Toast Notification System** - Polished user feedback
-8. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
-9. **Production Deployment** - Vercel hosting with proper CI/CD
+4. **Parallel Processing** - All PDFs processed concurrently (~10x faster)
+5. **HTML Preview Rendering** - Formatted display with headers, lists, styling
+6. **Compact Modern UI** - 25-35% size reduction, dark mode, fits on one screen
+7. **Smart Text Cleaning** - Automatic removal of LLM response indentation artifacts
+8. **Gemini API Support** - Added third LLM provider option
+9. **Markdown-to-HTML Conversion** - Better clipboard formatting than spec required
+10. **Active Prompt Highlighting** - Visual feedback for selected prompt
+11. **Toast Notification System** - Polished user feedback
+12. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
+13. **Production Deployment** - Vercel hosting with proper CI/CD
 
 ### Spec Items Not Implemented
 
@@ -346,25 +392,26 @@ From Phase 8 "Polish":
 
 ## Known Issues & Limitations
 
-### Security Considerations ✅
+### Current Limitations
 
-1. **API Key Security** - RESOLVED ✅
-   - Implementation: Vercel environment variables
-   - API keys stored server-side only
-   - Never exposed to frontend/browser
-   - Industry-standard secure architecture
+1. **Claude/Anthropic Timeouts** ⚠️
+   - Issue: Claude Sonnet 4.5 takes >60 seconds to respond
+   - Impact: Vercel Pro tier has 60-second function timeout
+   - Status: Hidden from UI, backend code functional
+   - Workaround: Use OpenAI or Gemini (both fast)
+   - Future: Upgrade to Vercel Enterprise (900s timeout) or use faster Claude models
 
 2. **Public Access**
    - Anyone with the URL can use the deployed app
    - Consumes your API quota/credits
-   - Mitigation: Don't share URL publicly, or implement rate limiting (see SIMPLE-DEPLOY.md)
+   - Mitigation: Don't share URL publicly, user authentication available
 
 ### Functional Limitations
 
-1. **Sequential Processing Only**
-   - Files processed one at a time
-   - Can be slow for large batches
-   - No parallel processing due to rate limit concerns
+1. ~~**Sequential Processing Only**~~ - RESOLVED ✅
+   - Now processes all files in parallel
+   - ~10x faster for typical batches
+   - Perfect for user's use case (~10 files at once)
 
 2. **Limited Session Persistence**
    - Uploaded files lost on page refresh (by design - privacy)
@@ -574,16 +621,21 @@ if (provider === 'newprovider') {
 
 ## Performance Considerations
 
-### Current Performance
+### Current Performance ✅
 
-**Bottlenecks:**
-- PDF text extraction: ~1-3 seconds per 20-page PDF
-- LLM API call: ~5-30 seconds depending on transcript length and model
-- Sequential processing: Total time = (extraction + LLM) × file_count
+**Parallel Processing Implemented:**
+- PDF text extraction: ~1-3 seconds per 20-page PDF (all files at once)
+- LLM API call: ~5-30 seconds depending on transcript length and model (all files at once)
+- **Total time = max(longest file), not sum of all files**
 
-**Optimization Opportunities:**
-1. Parallel PDF extraction (doesn't hit API)
-2. Parallel LLM calls with rate limiting
+**Performance Metrics:**
+- Before: 10 files × 30 seconds = 300 seconds (5 minutes)
+- After: max(30 seconds) = 30 seconds total
+- **Improvement: ~10x faster**
+
+**Remaining Optimization Opportunities:**
+1. ~~Parallel PDF extraction~~ - ✅ Implemented
+2. ~~Parallel LLM calls~~ - ✅ Implemented
 3. Web Worker for PDF processing (avoid main thread blocking)
 4. Streaming API responses (show results as they arrive)
 5. Cache extracted PDF text (avoid re-extraction)
@@ -601,11 +653,13 @@ This transcript parser implementation successfully delivers on all core requirem
 
 **Key Achievements:**
 - ✅ All 8 original specification phases completed
-- ✅ **3 additional enhancement phases** (auth, backend, UI selection)
-- ✅ Support for 3 major LLM providers with runtime switching
+- ✅ **4 additional enhancement phases** (auth, backend, UI selection, performance/UX)
+- ✅ Support for 3 major LLM providers (2 active: OpenAI, Gemini)
+- ✅ **Parallel processing** - ~10x faster than sequential
 - ✅ **Secure backend architecture** with environment variables
 - ✅ **User authentication** with cloud-synced prompts
-- ✅ Polished, responsive UI with model selection
+- ✅ **Compact dark mode UI** - fits on single screen
+- ✅ **HTML preview rendering** - formatted display with styling
 - ✅ Robust error handling
 - ✅ Rich clipboard support for OneNote
 - ✅ **Production-ready** Vercel deployment
@@ -614,15 +668,29 @@ This transcript parser implementation successfully delivers on all core requirem
 - ✅ **Zero API key exposure** - All keys server-side only
 - ✅ **Serverless backend** - Scalable, zero-cost hosting
 - ✅ **Database integration** - Supabase for user data
+- ✅ **Parallel execution** - Promise.all() for concurrent processing
 - ✅ **Modern deployment** - GitHub → Vercel CI/CD
 
-The codebase is well-organized, production-ready, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides a perfect balance of simplicity and security.
+**Performance Achievements:**
+- ✅ **10x faster processing** with parallel execution
+- ✅ **Compact UI** fits on single screen without scrolling
+- ✅ **Smart text cleaning** removes indentation artifacts
+- ✅ **HTML rendering** provides polished preview experience
 
-**Total Lines of Code:** ~1,500 lines (including backend)
-**Development Time:** Estimated 20-24 hours (including enhancements)
+**Current Status:**
+- Production-ready and deployed
+- Optimized for single-user personal use
+- ~10 files per batch, <50 files per day typical usage
+- Claude/Anthropic available via code but hidden from UI (timeout issues)
+
+The codebase is well-organized, highly optimized, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides excellent performance while maintaining simplicity and security.
+
+**Total Lines of Code:** ~1,600 lines (including backend and optimizations)
+**Development Time:** Estimated 24-30 hours (including all enhancements)
 **Browser Support:** Modern browsers (Chrome, Firefox, Safari, Edge)
-**Deployment:** Vercel (production), localhost (development)
+**Deployment:** Vercel Pro (production), localhost (development)
 
 ---
 
-*Last Updated: 2026-01-08*
+*Last Updated: 2026-01-08 (Final)*
+*Status: Production - Feature Complete*
