@@ -81,6 +81,34 @@ All 8 phases from the specification have been successfully implemented:
 - Empty state messaging
 - **Files:** `styles.css:335-369` (toast), `styles.css:282-292` (status colors)
 
+### 🎉 Post-Launch Enhancements
+
+Beyond the original 8 phases, significant enhancements have been added:
+
+#### Phase 9: User Authentication & Cloud Storage ✅
+- Supabase integration for user authentication
+- Email/password login and signup
+- Per-user saved prompts stored in cloud database
+- Session management with automatic token refresh
+- Graceful fallback to localStorage for unauthenticated users
+- **Files:** `app.js:102-333`, `index.html:104-132`, `api/config.js`
+
+#### Phase 10: Backend API Architecture ✅
+- Vercel serverless functions for secure API proxy
+- Environment variable-based API key storage (never exposed to frontend)
+- Support for all three LLM providers via single backend endpoint
+- Proper error handling and status codes
+- Configuration endpoint for public Supabase credentials
+- **Files:** `api/llm.js`, `api/config.js`, `vercel.json`
+
+#### Phase 11: Multi-Provider UI Selection ✅
+- Dropdown selector for LLM provider (Gemini/OpenAI/Claude)
+- Custom model name input field with placeholders
+- Real-time provider switching without code changes
+- Default model fallback for each provider
+- Responsive model settings panel
+- **Files:** `index.html:76-90`, `app.js:56-58`, `app.js:591-616`, `styles.css:244-264`
+
 ## Technical Architecture
 
 ### Technology Stack
@@ -90,29 +118,44 @@ All 8 phases from the specification have been successfully implemented:
 - No frameworks or build tools required
 - Single-page application architecture
 
+**Backend:**
+- Vercel Serverless Functions (Node.js)
+- Secure API proxy for LLM providers
+- Environment variable-based configuration
+
 **External Libraries:**
 - PDF.js v3.11.174 (Mozilla) - Client-side PDF text extraction
 - marked.js - Markdown to HTML conversion for clipboard
+- Supabase JS Client v2 - Authentication and database
 
 **APIs:**
 - OpenAI Chat Completions API
 - Anthropic Messages API
 - Google Gemini Generative Language API
+- Supabase Auth & Database API
 
 **Storage:**
-- localStorage for saved prompts
-- In-memory state for uploaded files and results
+- **Authenticated users:** Prompts in Supabase PostgreSQL database
+- **Guest users:** Prompts in localStorage (browser-based)
+- **Session data:** Uploaded files and results in memory (cleared on refresh)
+- **API keys:** Vercel environment variables (never exposed to frontend)
 
 ### File Structure
 
 ```
 transcript-parser/
-├── index.html          # Main HTML structure (83 lines)
-├── styles.css          # Complete styling (485 lines)
-├── app.js              # Application logic (592 lines)
-├── spec.md             # Original specification
-├── README.md           # User-facing documentation
-└── claude.md           # This implementation documentation
+├── index.html          # Main HTML structure (169 lines)
+├── styles.css          # Complete styling (584 lines)
+├── app.js              # Frontend application logic (791 lines)
+├── api/
+│   ├── llm.js         # Vercel serverless function - LLM API proxy (110 lines)
+│   └── config.js      # Vercel serverless function - Supabase config (16 lines)
+├── vercel.json        # Vercel deployment configuration
+├── .env.example       # Environment variables template
+├── spec.md            # Original specification
+├── README.md          # User-facing documentation
+├── SIMPLE-DEPLOY.md   # Deployment guide
+└── CLAUDE.md          # This implementation documentation
 ```
 
 ### Key Design Decisions
@@ -122,10 +165,11 @@ transcript-parser/
    - Why: No server upload needed, faster processing, works offline
    - Trade-off: Large PDFs may slow down browser
 
-2. **API Key Storage**
-   - Current: Hardcoded in `app.js` (lines 4-8)
-   - ⚠️ **Security Note:** API key is visible in source code
-   - Better approach: Use environment variables or user-provided keys (mentioned in README but not implemented)
+2. **API Key Storage** ✅ RESOLVED
+   - Implementation: Vercel environment variables via serverless backend
+   - Security: API keys never exposed to frontend code
+   - Architecture: Frontend → Vercel Function → LLM API
+   - Zero client-side key exposure
 
 3. **Sequential vs Parallel Processing**
    - Chosen: Sequential (one PDF at a time)
@@ -134,22 +178,31 @@ transcript-parser/
    - Future enhancement: Parallel processing with rate limiting
 
 4. **State Management**
-   - Chosen: Plain JavaScript objects (`uploadedFiles`, `savedPrompts`, `currentResults`)
+   - Chosen: Plain JavaScript objects (`uploadedFiles`, `savedPrompts`, `currentResults`, `currentUser`)
    - Why: Simple, no framework needed for this scale
    - Works well for session-only data
+   - Supabase handles authentication state automatically
 
 5. **Rich Text Clipboard**
    - Implemented markdown-to-HTML conversion
    - Provides both `text/plain` and `text/html` to clipboard
    - Ensures good formatting when pasting into OneNote
 
+6. **Backend API Proxy**
+   - Chosen: Vercel Serverless Functions
+   - Why: Zero-cost hosting, automatic scaling, secure environment variables
+   - Trade-off: 10-second timeout on free tier (can upgrade for longer)
+   - Keeps API keys completely secure from client access
+
 ## Code Organization
 
-### Main State Variables (app.js:11-14)
+### Main State Variables (app.js:35-40)
 ```javascript
-let uploadedFiles = [];      // Array of File objects
-let savedPrompts = [];       // Array of {name, text} objects
-let currentResults = [];     // Array of result objects with status
+var uploadedFiles = [];      // Array of File objects
+var savedPrompts = [];       // Array of {name, text, id?} objects
+var currentResults = [];     // Array of result objects with status
+var currentUser = null;      // Current authenticated user (Supabase)
+var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 ```
 
 ### Core Functions
@@ -163,17 +216,27 @@ let currentResults = [];     // Array of result objects with status
 - `extractTextFromPDF()` - Async PDF text extraction using PDF.js
 - Returns concatenated text from all pages
 
+**Authentication:**
+- `checkAuth()` - Verifies user session on init
+- `handleAuthSubmit()` - Processes login/signup form
+- `handleLogout()` - Signs out user and clears state
+- `updateAuthUI()` - Toggles login/logout button visibility
+- `openAuthModal()` / `closeAuthModal()` - Modal management
+
 **Prompt Management:**
-- `loadSavedPrompts()` - Loads from localStorage on init
-- `handleSavePrompt()` - Saves/updates prompt
-- `handleDeletePrompt()` - Removes saved prompt
+- `loadSavedPrompts()` - Loads from localStorage (fallback)
+- `loadUserPrompts()` - Loads from Supabase database (authenticated)
+- `saveUserPrompt()` - Saves to database or localStorage
+- `deleteUserPrompt()` - Deletes from database or localStorage
+- `handleSavePrompt()` - UI handler for save button
+- `handleDeletePrompt()` - UI handler for delete button
 - `loadPromptByName()` - Populates textarea from saved prompt
 
 **LLM Integration:**
-- `callLLM()` - Router function for provider selection
-- `callOpenAI()` - OpenAI-specific API call
-- `callAnthropic()` - Anthropic-specific API call
-- `callGemini()` - Gemini-specific API call
+- `callLLM()` - Sends request to backend API with selected provider/model
+- Backend `callOpenAI()` - OpenAI-specific API call (api/llm.js)
+- Backend `callAnthropic()` - Anthropic-specific API call (api/llm.js)
+- Backend `callGemini()` - Gemini-specific API call (api/llm.js)
 
 **Batch Processing:**
 - `handleParse()` - Main orchestration function
@@ -188,27 +251,46 @@ let currentResults = [];     // Array of result objects with status
 
 ## Feature Highlights
 
-### 1. Multi-Provider LLM Support
-Unlike the spec which suggested choosing one provider, the implementation supports **three** providers:
+### 1. Multi-Provider LLM Support with UI Selection
+Unlike the spec which suggested choosing one provider, the implementation supports **three** providers with **runtime selection**:
 - OpenAI (default: `gpt-4-turbo`)
 - Anthropic (default: `claude-3-5-sonnet-20241022`)
 - Google Gemini (default: `gemini-2.0-flash-exp`)
 
-Configuration at `app.js:4-8`:
-```javascript
-const API_CONFIG = {
-    provider: 'gemini',
-    apiKey: 'YOUR_API_KEY_HERE',  // ⚠️ EXPOSED IN ORIGINAL CODE
-    modelName: 'gemini-3-pro-preview'
-};
+**UI Features:**
+- Dropdown selector in "Process & Results" panel
+- Custom model name input (e.g., "gpt-4o", "claude-opus-4-5-20251101", "gemini-2.0-flash-thinking-exp")
+- Default model used if input is empty
+- Selection sent to backend with each request
+
+**Configuration (Vercel Environment Variables):**
+```bash
+GEMINI_API_KEY=your-key-here
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Optional model overrides
+GEMINI_MODEL=gemini-2.0-flash-exp
+OPENAI_MODEL=gpt-4-turbo
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
-### 2. Smart Prompt Management
-- Prompts saved to localStorage persist across sessions
+### 2. Smart Prompt Management with Cloud Sync
+**Authenticated Users (Supabase):**
+- Prompts saved to PostgreSQL database
+- Synced across devices automatically
+- Persistent and backed up
+
+**Guest Users (localStorage):**
+- Browser-based storage
+- Persists across sessions on same device
+
+**Shared Features:**
 - Visual button list for quick access
 - Active prompt highlighting
 - Automatic overwrite (no confirmation) for existing names
 - Displays helpful message when no prompts saved yet
+- Seamless fallback from database to localStorage
 
 ### 3. Robust Error Handling
 - PDF extraction errors don't halt batch processing
@@ -235,11 +317,15 @@ Each file shows detailed progress:
 
 ### Completed Beyond Spec ✨
 
-1. **Gemini API Support** - Added third LLM provider option
-2. **Markdown-to-HTML Conversion** - Better clipboard formatting than spec required
-3. **Active Prompt Highlighting** - Visual feedback for selected prompt
-4. **Toast Notification System** - Polished user feedback (spec mentioned this as "Phase 8")
-5. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
+1. **User Authentication System** - Supabase login/signup with cloud-synced prompts
+2. **Backend API Proxy** - Secure serverless architecture with environment variables
+3. **Multi-Provider UI Selection** - Runtime provider/model switching without code changes
+4. **Gemini API Support** - Added third LLM provider option
+5. **Markdown-to-HTML Conversion** - Better clipboard formatting than spec required
+6. **Active Prompt Highlighting** - Visual feedback for selected prompt
+7. **Toast Notification System** - Polished user feedback
+8. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
+9. **Production Deployment** - Vercel hosting with proper CI/CD
 
 ### Spec Items Not Implemented
 
@@ -250,7 +336,7 @@ From "Optional Future Enhancements" section:
 - ❌ Batch edit (different prompts per PDF)
 - ❌ Templates for analysis types
 - ❌ Token usage/cost tracking
-- ❌ Multiple provider switching UI
+- ✅ **Multiple provider switching UI** - IMPLEMENTED with dropdown + custom model input
 - ❌ Dark mode
 
 From Phase 8 "Polish":
@@ -260,18 +346,18 @@ From Phase 8 "Polish":
 
 ## Known Issues & Limitations
 
-### Security Concerns ⚠️
+### Security Considerations ✅
 
-1. **Exposed API Key**
-   - Location: `app.js:6`
-   - Issue: API key is hardcoded and visible in source
-   - Impact: Anyone with access to the code can see/use the key
-   - Mitigation needed: Implement user-provided key input with secure storage
+1. **API Key Security** - RESOLVED ✅
+   - Implementation: Vercel environment variables
+   - API keys stored server-side only
+   - Never exposed to frontend/browser
+   - Industry-standard secure architecture
 
-2. **CORS Limitations**
-   - All API calls are made directly from browser
-   - Works for current LLM providers but may not work for all APIs
-   - Alternative: Backend proxy for API calls
+2. **Public Access**
+   - Anyone with the URL can use the deployed app
+   - Consumes your API quota/credits
+   - Mitigation: Don't share URL publicly, or implement rate limiting (see SIMPLE-DEPLOY.md)
 
 ### Functional Limitations
 
@@ -280,20 +366,20 @@ From Phase 8 "Polish":
    - Can be slow for large batches
    - No parallel processing due to rate limit concerns
 
-2. **No Session Persistence**
-   - Uploaded files lost on page refresh
-   - Results not saved across sessions
-   - Only prompts persist via localStorage
+2. **Limited Session Persistence**
+   - Uploaded files lost on page refresh (by design - privacy)
+   - Results not saved across sessions (by design - privacy)
+   - Prompts persist (localStorage for guests, database for authenticated users)
 
 3. **PDF Limitations**
    - Only works with text-based PDFs (not scanned images/OCR needed)
    - Very large PDFs may cause browser slowdown
    - No progress indicator during PDF extraction
 
-4. **No Settings UI**
-   - README mentions "⚙️ Settings" button but it doesn't exist
-   - API configuration requires editing source code
-   - Should have modal/panel for API settings
+4. **Provider/Model Selection** - PARTIALLY RESOLVED ✅
+   - UI includes provider dropdown and model name input
+   - Configuration still requires environment variables (Vercel dashboard)
+   - No in-app API key management (by design for security)
 
 ### Browser Compatibility
 
@@ -354,64 +440,91 @@ From Phase 8 "Polish":
 ### For End Users
 
 1. **Setup:**
-   - Edit `app.js` lines 4-8 with your API credentials
-   - Open `index.html` in a modern browser
+   - Deploy to Vercel (see SIMPLE-DEPLOY.md)
+   - Add API keys to Vercel environment variables
+   - Visit your deployed URL
 
-2. **Basic Workflow:**
+2. **Authentication (Optional):**
+   - Click "Login" to create account
+   - Prompts sync across devices
+   - Or use as guest (prompts stored locally)
+
+3. **Basic Workflow:**
+   - Select LLM provider (Gemini/OpenAI/Claude)
+   - Optionally specify custom model name
    - Upload PDF files (drag-and-drop or click)
    - Enter or select a prompt
    - Click "Parse Transcripts"
    - Preview results and copy to clipboard
    - Paste into OneNote or other destination
 
-3. **Saving Prompts:**
+4. **Saving Prompts:**
    - Type a name in the "Prompt name" field
    - Type or edit the prompt text
    - Click "Save" button
    - Prompt appears as button below textarea
+   - (Saved to database if logged in, localStorage if guest)
 
 ### For Developers
 
-**Configuration:**
-```javascript
-// app.js:4-8
-const API_CONFIG = {
-    provider: 'gemini',     // 'openai' | 'anthropic' | 'gemini'
-    apiKey: 'YOUR_KEY',     // Get from provider console
-    modelName: 'model'      // Optional, uses default if empty
-};
+**Environment Configuration (.env or Vercel):**
+```bash
+# LLM API Keys
+GEMINI_API_KEY=your-key-here
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Optional model overrides
+GEMINI_MODEL=gemini-2.0-flash-exp
+OPENAI_MODEL=gpt-4-turbo
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+
+# Supabase (optional - for auth)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 ```
 
 **Adding a New LLM Provider:**
 
-1. Add new function in `app.js` following pattern:
+1. Add new function in `api/llm.js` following pattern:
 ```javascript
-async function callNewProvider(prompt, text) {
-    const model = API_CONFIG.modelName || 'default-model';
+async function callNewProvider(prompt, text, modelName) {
+    const model = modelName || process.env.NEW_PROVIDER_MODEL || 'default-model';
     const response = await fetch('API_ENDPOINT', {
-        // ... provider-specific request
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${process.env.NEW_PROVIDER_API_KEY}`
+        },
+        body: JSON.stringify({
+            // ... provider-specific request
+        })
     });
     const data = await response.json();
     return data.content; // Extract response text
 }
 ```
 
-2. Update `callLLM()` router:
+2. Update handler in `api/llm.js`:
 ```javascript
-if (API_CONFIG.provider === 'newprovider') {
-    return await callNewProvider(prompt, text);
+if (provider === 'newprovider') {
+    result = await callNewProvider(prompt, text, modelName);
 }
+```
+
+3. Add option to `index.html` dropdown:
+```html
+<option value="newprovider">New Provider Name</option>
 ```
 
 ## Future Development Suggestions
 
 ### High Priority
 
-1. **Settings UI** ⭐
-   - Add modal for API configuration
-   - Remove hardcoded API key
-   - Allow runtime provider/model switching
-   - Secure key storage (localStorage with warning)
+1. ~~**Settings UI**~~ - COMPLETED ✅
+   - ✅ Runtime provider/model switching via dropdown
+   - ✅ Secure API keys in environment variables
+   - ✅ No hardcoded keys in frontend
+   - Future: In-app environment variable management (advanced)
 
 2. **Parallel Processing** ⭐
    - Process multiple PDFs simultaneously
@@ -487,21 +600,29 @@ if (API_CONFIG.provider === 'newprovider') {
 This transcript parser implementation successfully delivers on all core requirements from the specification. The application provides a streamlined workflow for batch processing PDF transcripts with LLM assistance, significantly reducing manual effort.
 
 **Key Achievements:**
-- ✅ All 8 specification phases completed
-- ✅ Support for 3 major LLM providers
-- ✅ Polished, responsive UI
+- ✅ All 8 original specification phases completed
+- ✅ **3 additional enhancement phases** (auth, backend, UI selection)
+- ✅ Support for 3 major LLM providers with runtime switching
+- ✅ **Secure backend architecture** with environment variables
+- ✅ **User authentication** with cloud-synced prompts
+- ✅ Polished, responsive UI with model selection
 - ✅ Robust error handling
 - ✅ Rich clipboard support for OneNote
+- ✅ **Production-ready** Vercel deployment
 
-**Main Gap:**
-- ⚠️ Security: Hardcoded API key needs proper settings UI
+**Architecture Highlights:**
+- ✅ **Zero API key exposure** - All keys server-side only
+- ✅ **Serverless backend** - Scalable, zero-cost hosting
+- ✅ **Database integration** - Supabase for user data
+- ✅ **Modern deployment** - GitHub → Vercel CI/CD
 
-The codebase is well-organized, maintainable, and ready for the suggested enhancements. The vanilla JavaScript approach keeps it simple and framework-free, making it easy to modify and extend.
+The codebase is well-organized, production-ready, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides a perfect balance of simplicity and security.
 
-**Total Lines of Code:** ~1,160 lines
-**Development Time:** Estimated 12-16 hours (based on spec phases)
+**Total Lines of Code:** ~1,500 lines (including backend)
+**Development Time:** Estimated 20-24 hours (including enhancements)
 **Browser Support:** Modern browsers (Chrome, Firefox, Safari, Edge)
+**Deployment:** Vercel (production), localhost (development)
 
 ---
 
-*Last Updated: 2026-01-07*
+*Last Updated: 2026-01-08*

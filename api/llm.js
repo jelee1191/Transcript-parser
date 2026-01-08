@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 }
 
 async function callOpenAI(prompt, text, modelName) {
-    const model = modelName || process.env.OPENAI_MODEL || 'gpt-4-turbo';
+    const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.2';
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -58,7 +58,21 @@ async function callOpenAI(prompt, text, modelName) {
 }
 
 async function callAnthropic(prompt, text, modelName) {
-    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+
+    // Check if API key is set
+    if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+    }
+
+    const requestBody = {
+        model,
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: `${prompt}\n\n${text}` }]
+    };
+
+    console.log('Anthropic request:', { model, apiKeySet: !!process.env.ANTHROPIC_API_KEY });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -66,16 +80,13 @@ async function callAnthropic(prompt, text, modelName) {
             'x-api-key': process.env.ANTHROPIC_API_KEY,
             'anthropic-version': '2023-06-01'
         },
-        body: JSON.stringify({
-            model,
-            max_tokens: 4096,
-            messages: [{ role: 'user', content: `${prompt}\n\n${text}` }]
-        })
+        body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
         const error = await response.json();
-        throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
+        console.error('Anthropic API error response:', JSON.stringify(error, null, 2));
+        throw new Error(`Anthropic API error: ${error.error?.message || error.message || JSON.stringify(error)}`);
     }
 
     const data = await response.json();
@@ -83,7 +94,7 @@ async function callAnthropic(prompt, text, modelName) {
 }
 
 async function callGemini(prompt, text, modelName) {
-    const model = modelName || process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    const model = modelName || process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {

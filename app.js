@@ -23,12 +23,6 @@ const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 var supabaseClient = null;
 if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase initialized successfully');
-} else {
-    console.warn('⚠️ Supabase not initialized. Auth features disabled.');
-    console.log('- window.supabase exists:', typeof window.supabase !== 'undefined');
-    console.log('- SUPABASE_URL:', SUPABASE_URL ? 'Set' : 'Missing');
-    console.log('- SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'Set' : 'Missing');
 }
 // ============================================
 
@@ -132,7 +126,6 @@ function updateAuthUI() {
 }
 
 function openAuthModal(mode = 'login') {
-    console.log('📝 Opening auth modal in mode:', mode);
     isAuthMode = mode;
     authModalTitle.textContent = mode === 'login' ? 'Login' : 'Sign Up';
     authSubmitBtn.textContent = mode === 'login' ? 'Login' : 'Sign Up';
@@ -413,15 +406,8 @@ function setupEventListeners() {
 
     // Auth buttons and modal
     if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-            console.log('🔘 Login button clicked');
-            openAuthModal('login');
-        });
-        console.log('✅ Login button event listener attached');
-    } else {
-        console.warn('⚠️ Login button not found');
+        loginBtn.addEventListener('click', () => openAuthModal('login'));
     }
-
     if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
     if (authModalClose) authModalClose.addEventListener('click', closeAuthModal);
     if (authToggleBtn) authToggleBtn.addEventListener('click', () => {
@@ -434,9 +420,6 @@ function setupEventListeners() {
         authModal.addEventListener('click', (e) => {
             if (e.target === authModal) closeAuthModal();
         });
-        console.log('✅ Auth modal event listeners attached');
-    } else {
-        console.warn('⚠️ Auth modal not found');
     }
 }
 
