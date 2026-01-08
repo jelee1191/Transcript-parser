@@ -58,9 +58,8 @@ async function callOpenAI(prompt, text, modelName) {
 }
 
 async function callAnthropic(prompt, text, modelName) {
-    // Use Claude 3 Opus - widely available on all API tiers
-    // Claude 3.5 models may not be available on all accounts yet
-    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-3-opus-20240229';
+    // Use Claude Sonnet 4.5 (September 2025 release)
+    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
 
     // Check if API key is set
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -69,7 +68,7 @@ async function callAnthropic(prompt, text, modelName) {
 
     const requestBody = {
         model,
-        max_tokens: 4096,
+        max_tokens: 8192, // Increased for longer responses
         messages: [{ role: 'user', content: `${prompt}\n\n${text}` }]
     };
 
