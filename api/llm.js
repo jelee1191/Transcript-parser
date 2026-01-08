@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 }
 
 async function callOpenAI(prompt, text, modelName) {
-    const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.2';
+    const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.1';
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {

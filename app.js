@@ -716,7 +716,7 @@ function updateResultsDisplay() {
                     <button class="btn btn-small btn-primary copy-btn" data-index="${index}">Copy</button>
                 </div>
                 <div class="result-preview" id="preview-${index}">
-                    ${escapeHtml(result.output)}
+                    ${escapeHtml(result.output.trim())}
                 </div>
             ` : ''}
         </div>
