@@ -11,12 +11,24 @@ const API_CONFIG = {
     provider: 'gemini',  // 'openai', 'anthropic', or 'gemini'
     modelName: ''  // Optional: Leave empty for default, or specify custom model
 };
+
+// Supabase configuration (set via inline script in HTML or env)
+const SUPABASE_URL = window.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
+
+// Initialize Supabase client
+let supabase = null;
+if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 // ============================================
 
 // State
 let uploadedFiles = [];
 let savedPrompts = [];
 let currentResults = [];
+let currentUser = null;
+let isAuthMode = 'login'; // 'login' or 'signup'
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
@@ -31,6 +43,22 @@ const parseBtn = document.getElementById('parseBtn');
 const clearBtn = document.getElementById('clearBtn');
 const resultsContainer = document.getElementById('resultsContainer');
 const toast = document.getElementById('toast');
+
+// Auth DOM Elements
+const authModal = document.getElementById('authModal');
+const authModalClose = document.getElementById('authModalClose');
+const authModalTitle = document.getElementById('authModalTitle');
+const authForm = document.getElementById('authForm');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const authToggleText = document.getElementById('authToggleText');
+const authToggleBtn = document.getElementById('authToggleBtn');
+const authUser = document.getElementById('authUser');
+const authButtons = document.getElementById('authButtons');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const userEmail = document.getElementById('userEmail');
 
 // Toast notification helper
 let toastTimeout;
@@ -57,17 +85,268 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Initialize
-function init() {
+// ============================================
+// AUTHENTICATION FUNCTIONS
+// ============================================
+
+async function checkAuth() {
+    if (!supabase) {
+        // No Supabase configured, use local storage only
+        loadSavedPrompts();
+        updateAuthUI();
+        return;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+        await loadUserPrompts();
+    } else {
+        loadSavedPrompts(); // Fallback to localStorage
+    }
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    if (currentUser) {
+        authUser.style.display = 'flex';
+        authButtons.style.display = 'none';
+        userEmail.textContent = currentUser.email;
+    } else {
+        authUser.style.display = 'none';
+        authButtons.style.display = 'flex';
+    }
+}
+
+function openAuthModal(mode = 'login') {
+    isAuthMode = mode;
+    authModalTitle.textContent = mode === 'login' ? 'Login' : 'Sign Up';
+    authSubmitBtn.textContent = mode === 'login' ? 'Login' : 'Sign Up';
+    authToggleText.textContent = mode === 'login' ? "Don't have an account?" : 'Already have an account?';
+    authToggleBtn.textContent = mode === 'login' ? 'Sign up' : 'Login';
+    authModal.classList.add('visible');
+    authEmail.value = '';
+    authPassword.value = '';
+}
+
+function closeAuthModal() {
+    authModal.classList.remove('visible');
+}
+
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+
+    if (!supabase) {
+        showToast('Authentication not configured', 'error');
+        return;
+    }
+
+    const email = authEmail.value.trim();
+    const password = authPassword.value.trim();
+
+    if (!email || !password) {
+        showToast('Please fill in all fields', 'warning');
+        return;
+    }
+
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.textContent = isAuthMode === 'login' ? 'Logging in...' : 'Signing up...';
+
+    try {
+        if (isAuthMode === 'login') {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            currentUser = data.user;
+            showToast('Logged in successfully!', 'success');
+        } else {
+            const { data, error } = await supabase.auth.signUp({ email, password });
+            if (error) throw error;
+            currentUser = data.user;
+            showToast('Account created! Please check your email to verify.', 'success');
+        }
+
+        closeAuthModal();
+        await loadUserPrompts();
+        updateAuthUI();
+    } catch (error) {
+        console.error('Auth error:', error);
+        showToast(error.message || 'Authentication failed', 'error');
+    } finally {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = isAuthMode === 'login' ? 'Login' : 'Sign Up';
+    }
+}
+
+async function handleLogout() {
+    if (!supabase) return;
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        showToast('Logout failed', 'error');
+        return;
+    }
+
+    currentUser = null;
+    savedPrompts = [];
+    updateSavedPromptsButtons();
+    updateAuthUI();
+    showToast('Logged out successfully', 'success');
+}
+
+async function loadUserPrompts() {
+    if (!supabase || !currentUser) {
+        loadSavedPrompts();
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from('prompts')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error loading prompts:', error);
+        showToast('Failed to load prompts', 'error');
+        loadSavedPrompts(); // Fallback
+        return;
+    }
+
+    savedPrompts = data.map(p => ({ name: p.name, text: p.text, id: p.id }));
+    updateSavedPromptsButtons();
+}
+
+async function saveUserPrompt(name, text) {
+    if (!supabase || !currentUser) {
+        // Fallback to localStorage
+        return savePromptToLocalStorage(name, text);
+    }
+
+    // Check if prompt exists
+    const existing = savedPrompts.find(p => p.name === name);
+
+    if (existing) {
+        // Update existing
+        const { error } = await supabase
+            .from('prompts')
+            .update({ text, updated_at: new Date().toISOString() })
+            .eq('id', existing.id);
+
+        if (error) {
+            console.error('Error updating prompt:', error);
+            showToast('Failed to update prompt', 'error');
+            return;
+        }
+
+        showToast(`Prompt "${name}" updated`, 'success');
+    } else {
+        // Insert new
+        const { data, error } = await supabase
+            .from('prompts')
+            .insert([{ user_id: currentUser.id, name, text }])
+            .select();
+
+        if (error) {
+            console.error('Error saving prompt:', error);
+            showToast('Failed to save prompt', 'error');
+            return;
+        }
+
+        savedPrompts.push({ name, text, id: data[0].id });
+        showToast(`Prompt "${name}" saved`, 'success');
+    }
+
+    updateSavedPromptsButtons();
+}
+
+async function deleteUserPrompt(name) {
+    if (!supabase || !currentUser) {
+        // Fallback to localStorage
+        return deletePromptFromLocalStorage(name);
+    }
+
+    const prompt = savedPrompts.find(p => p.name === name);
+    if (!prompt) {
+        showToast(`No prompt named "${name}" found`, 'error');
+        return;
+    }
+
+    const { error } = await supabase
+        .from('prompts')
+        .delete()
+        .eq('id', prompt.id);
+
+    if (error) {
+        console.error('Error deleting prompt:', error);
+        showToast('Failed to delete prompt', 'error');
+        return;
+    }
+
+    savedPrompts = savedPrompts.filter(p => p.id !== prompt.id);
+    updateSavedPromptsButtons();
+    promptNameInput.value = '';
+    promptInput.value = '';
+    showToast(`Prompt "${name}" deleted`, 'success');
+}
+
+function savePromptToLocalStorage(name, text) {
+    const existingIndex = savedPrompts.findIndex(p => p.name === name);
+    if (existingIndex !== -1) {
+        savedPrompts[existingIndex].text = text;
+        showToast(`Prompt "${name}" updated`, 'success');
+    } else {
+        savedPrompts.push({ name, text });
+        showToast(`Prompt "${name}" saved`, 'success');
+    }
+    localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
+    updateSavedPromptsButtons();
+}
+
+function deletePromptFromLocalStorage(name) {
+    const index = savedPrompts.findIndex(p => p.name === name);
+    if (index === -1) {
+        showToast(`No prompt named "${name}" found`, 'error');
+        return;
+    }
+
+    savedPrompts.splice(index, 1);
+    localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
+    updateSavedPromptsButtons();
+    promptNameInput.value = '';
+    promptInput.value = '';
+    showToast(`Prompt "${name}" deleted`, 'success');
+}
+
+// ============================================
+// INITIALIZE
+// ============================================
+
+async function init() {
     // Configure PDF.js worker
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
     setupEventListeners();
-    loadSavedPrompts();
+    await checkAuth(); // Load user auth and prompts
     updateSavedPromptsButtons(); // Initialize buttons even if empty
     updateUI();
+
+    // Listen for auth state changes
+    if (supabase) {
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN') {
+                currentUser = session.user;
+                loadUserPrompts();
+                updateAuthUI();
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                savedPrompts = [];
+                updateSavedPromptsButtons();
+                updateAuthUI();
+            }
+        });
+    }
 }
 
 // Event Listeners
@@ -117,6 +396,20 @@ function setupEventListeners() {
     // Control buttons
     parseBtn.addEventListener('click', handleParse);
     clearBtn.addEventListener('click', handleClearAll);
+
+    // Auth buttons and modal
+    if (loginBtn) loginBtn.addEventListener('click', () => openAuthModal('login'));
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+    if (authModalClose) authModalClose.addEventListener('click', closeAuthModal);
+    if (authToggleBtn) authToggleBtn.addEventListener('click', () => {
+        openAuthModal(isAuthMode === 'login' ? 'signup' : 'login');
+    });
+    if (authForm) authForm.addEventListener('submit', handleAuthSubmit);
+
+    // Close modal when clicking outside
+    if (authModal) authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) closeAuthModal();
+    });
 }
 
 // File Upload Handlers
@@ -235,7 +528,7 @@ function loadPromptByName(promptName) {
     }
 }
 
-function handleSavePrompt() {
+async function handleSavePrompt() {
     const text = promptInput.value.trim();
     const name = promptNameInput.value.trim();
 
@@ -249,23 +542,12 @@ function handleSavePrompt() {
         return;
     }
 
-    // Check if prompt with this name already exists
-    const existingIndex = savedPrompts.findIndex(p => p.name === name);
-    if (existingIndex !== -1) {
-        // Overwrite without asking
-        savedPrompts[existingIndex].text = text;
-        showToast(`Prompt "${name}" updated`, 'success');
-    } else {
-        savedPrompts.push({ name, text });
-        showToast(`Prompt "${name}" saved`, 'success');
-    }
-
-    localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
-    updateSavedPromptsButtons();
+    // Use auth-aware save function
+    await saveUserPrompt(name, text);
     loadPromptByName(name);
 }
 
-function handleDeletePrompt() {
+async function handleDeletePrompt() {
     const name = promptNameInput.value.trim();
 
     if (!name) {
@@ -273,19 +555,8 @@ function handleDeletePrompt() {
         return;
     }
 
-    const index = savedPrompts.findIndex(p => p.name === name);
-    if (index === -1) {
-        showToast(`No prompt named "${name}" found`, 'error');
-        return;
-    }
-
-    // Delete without confirmation
-    savedPrompts.splice(index, 1);
-    localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
-    updateSavedPromptsButtons();
-    promptNameInput.value = '';
-    promptInput.value = '';
-    showToast(`Prompt "${name}" deleted`, 'success');
+    // Use auth-aware delete function
+    await deleteUserPrompt(name);
 }
 
 // LLM API Integration

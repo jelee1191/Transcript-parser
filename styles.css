@@ -17,9 +17,20 @@ body {
 }
 
 header {
-    text-align: center;
     color: white;
     margin-bottom: 30px;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.header-title {
+    flex: 1;
+    text-align: center;
 }
 
 header h1 {
@@ -31,6 +42,29 @@ header h1 {
 .subtitle {
     font-size: 1.1rem;
     opacity: 0.9;
+}
+
+.auth-section {
+    min-width: 200px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.auth-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-email {
+    color: white;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 8px;
 }
 
 .main-grid {
@@ -471,6 +505,32 @@ header h1 {
     color: #718096;
 }
 
+.auth-toggle {
+    margin-top: 20px;
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.auth-toggle span {
+    color: #718096;
+    margin-right: 8px;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.btn-link:hover {
+    color: #5568d3;
+}
+
 /* Responsive */
 @media (max-width: 968px) {
     .main-grid {
@@ -480,5 +540,19 @@ header h1 {
     .upload-panel,
     .prompt-panel {
         grid-column: 1;
+    }
+
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .header-title {
+        text-align: center;
+    }
+
+    .auth-section {
+        justify-content: center;
+        width: 100%;
     }
 }
