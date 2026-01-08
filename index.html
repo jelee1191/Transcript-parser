@@ -123,7 +123,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Supabase client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Load Supabase config from API -->
+    <!-- Load Supabase config from API, then load app -->
     <script>
         // Fetch Supabase configuration from API endpoint
         (async function loadConfig() {
@@ -143,8 +143,12 @@
                 window.SUPABASE_URL = '';
                 window.SUPABASE_ANON_KEY = '';
             }
+
+            // Load app.js after config is ready
+            const script = document.createElement('script');
+            script.src = 'app.js';
+            document.body.appendChild(script);
         })();
     </script>
-    <script src="app.js"></script>
 </body>
 </html>
