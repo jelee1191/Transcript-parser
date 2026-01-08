@@ -6,7 +6,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #1a1a1a;
     min-height: 100vh;
     padding: 10px;
 }
@@ -308,12 +308,12 @@ header h1 {
 }
 
 .btn-danger {
-    background: #fc8181;
-    color: white;
+    background: #edf2f7;
+    color: #2d3748;
 }
 
 .btn-danger:hover {
-    background: #f56565;
+    background: #e2e8f0;
 }
 
 .results-container {
