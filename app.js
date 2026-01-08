@@ -9,7 +9,7 @@ const API_CONFIG = {
 
     // Provider selection
     provider: 'gemini',  // 'openai', 'anthropic', or 'gemini'
-    modelName: ''  // Optional: Leave empty for default, or specify custom model
+    modelName: 'gemini-3-flash-preview'  // Optional: Leave empty for default, or specify custom model
 };
 
 // Prevent double-loading
