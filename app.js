@@ -626,39 +626,42 @@ async function handleParse() {
     parseBtn.disabled = true;
     parseBtn.textContent = 'Processing...';
 
-    // Process each file
-    for (let i = 0; i < uploadedFiles.length; i++) {
-        const file = uploadedFiles[i];
-
+    // Process all files in parallel
+    const processFile = async (file, index) => {
         try {
             // Update status to processing
-            currentResults[i].status = 'processing';
-            currentResults[i].statusText = 'Extracting text...';
+            currentResults[index].status = 'processing';
+            currentResults[index].statusText = 'Extracting text...';
             updateResultsDisplay();
 
             // Extract text from PDF
             const pdfText = await extractTextFromPDF(file);
 
             // Update status
-            currentResults[i].statusText = 'Processing with LLM...';
+            currentResults[index].statusText = 'Processing with LLM...';
             updateResultsDisplay();
 
-            // Call LLM API (to be implemented in Phase 5)
+            // Call LLM API
             const result = await callLLM(prompt, pdfText);
 
             // Update result
-            currentResults[i].status = 'complete';
-            currentResults[i].statusText = 'Complete';
-            currentResults[i].output = result;
+            currentResults[index].status = 'complete';
+            currentResults[index].statusText = 'Complete';
+            currentResults[index].output = result;
             updateResultsDisplay();
 
         } catch (error) {
             console.error(`Error processing ${file.name}:`, error);
-            currentResults[i].status = 'error';
-            currentResults[i].statusText = `Error: ${error.message}`;
+            currentResults[index].status = 'error';
+            currentResults[index].statusText = `Error: ${error.message}`;
             updateResultsDisplay();
         }
-    }
+    };
+
+    // Process all files concurrently
+    await Promise.all(
+        uploadedFiles.map((file, index) => processFile(file, index))
+    );
 
     // Re-enable parse button
     parseBtn.disabled = false;
