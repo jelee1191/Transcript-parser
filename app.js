@@ -12,14 +12,21 @@ const API_CONFIG = {
     modelName: ''  // Optional: Leave empty for default, or specify custom model
 };
 
+// Prevent double-loading
+if (window.transcriptParserLoaded) {
+    console.warn('⚠️ App already loaded, skipping initialization');
+    throw new Error('App already loaded');
+}
+window.transcriptParserLoaded = true;
+
 // Supabase configuration (set via inline script in HTML or env)
 const SUPABASE_URL = window.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 
 // Initialize Supabase client
-let supabase = null;
+let supabaseClientClient = null;
 if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClientClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log('✅ Supabase initialized successfully');
 } else {
     console.warn('⚠️ Supabase not initialized. Auth features disabled.');
@@ -96,14 +103,14 @@ function showToast(message, type = 'info') {
 // ============================================
 
 async function checkAuth() {
-    if (!supabase) {
+    if (!supabaseClient) {
         // No Supabase configured, use local storage only
         loadSavedPrompts();
         updateAuthUI();
         return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         currentUser = session.user;
         await loadUserPrompts();
@@ -143,7 +150,7 @@ function closeAuthModal() {
 async function handleAuthSubmit(e) {
     e.preventDefault();
 
-    if (!supabase) {
+    if (!supabaseClient) {
         showToast('Authentication not configured', 'error');
         return;
     }
@@ -161,12 +168,12 @@ async function handleAuthSubmit(e) {
 
     try {
         if (isAuthMode === 'login') {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) throw error;
             currentUser = data.user;
             showToast('Logged in successfully!', 'success');
         } else {
-            const { data, error } = await supabase.auth.signUp({ email, password });
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
             if (error) throw error;
             currentUser = data.user;
             showToast('Account created! Please check your email to verify.', 'success');
@@ -185,9 +192,9 @@ async function handleAuthSubmit(e) {
 }
 
 async function handleLogout() {
-    if (!supabase) return;
+    if (!supabaseClient) return;
 
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabaseClient.auth.signOut();
     if (error) {
         showToast('Logout failed', 'error');
         return;
@@ -201,12 +208,12 @@ async function handleLogout() {
 }
 
 async function loadUserPrompts() {
-    if (!supabase || !currentUser) {
+    if (!supabaseClient || !currentUser) {
         loadSavedPrompts();
         return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('prompts')
         .select('*')
         .eq('user_id', currentUser.id)
@@ -224,7 +231,7 @@ async function loadUserPrompts() {
 }
 
 async function saveUserPrompt(name, text) {
-    if (!supabase || !currentUser) {
+    if (!supabaseClient || !currentUser) {
         // Fallback to localStorage
         return savePromptToLocalStorage(name, text);
     }
@@ -234,7 +241,7 @@ async function saveUserPrompt(name, text) {
 
     if (existing) {
         // Update existing
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('prompts')
             .update({ text, updated_at: new Date().toISOString() })
             .eq('id', existing.id);
@@ -248,7 +255,7 @@ async function saveUserPrompt(name, text) {
         showToast(`Prompt "${name}" updated`, 'success');
     } else {
         // Insert new
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('prompts')
             .insert([{ user_id: currentUser.id, name, text }])
             .select();
@@ -267,7 +274,7 @@ async function saveUserPrompt(name, text) {
 }
 
 async function deleteUserPrompt(name) {
-    if (!supabase || !currentUser) {
+    if (!supabaseClient || !currentUser) {
         // Fallback to localStorage
         return deletePromptFromLocalStorage(name);
     }
@@ -278,7 +285,7 @@ async function deleteUserPrompt(name) {
         return;
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('prompts')
         .delete()
         .eq('id', prompt.id);
@@ -340,8 +347,8 @@ async function init() {
     updateUI();
 
     // Listen for auth state changes
-    if (supabase) {
-        supabase.auth.onAuthStateChange((event, session) => {
+    if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN') {
                 currentUser = session.user;
                 loadUserPrompts();
