@@ -1,0 +1,11 @@
+{
+  "name": "transcript-parser",
+  "version": "1.0.0",
+  "description": "Batch process PDF transcripts with AI",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}

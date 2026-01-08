@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcript Parser</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Transcript Parser</h1>
+            <p class="subtitle">Batch process PDF transcripts with AI</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Area 1: File Upload Zone -->
+            <div class="panel upload-panel">
+                <h2>Upload Files</h2>
+                <div class="upload-zone" id="uploadZone">
+                    <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag & drop PDF files here</p>
+                    <p class="upload-subtext">or click to browse</p>
+                    <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                </div>
+                <div class="file-list" id="fileList">
+                    <!-- Uploaded files will appear here -->
+                </div>
+            </div>
+
+            <!-- Area 2: Prompt Input Zone -->
+            <div class="panel prompt-panel">
+                <h2>Prompt</h2>
+                <div class="prompt-name-input">
+                    <input
+                        type="text"
+                        id="promptNameInput"
+                        class="prompt-name-field"
+                        placeholder="Prompt name (for saving)..."
+                    >
+                    <div class="prompt-actions">
+                        <button class="btn btn-small" id="savePromptBtn">Save</button>
+                        <button class="btn btn-small btn-danger" id="deletePromptBtn">Delete</button>
+                    </div>
+                </div>
+                <textarea
+                    id="promptInput"
+                    class="prompt-textarea"
+                    placeholder="Enter your prompt here...&#10;&#10;Example: Please summarize this earnings call transcript, highlighting key financial metrics, management commentary, and any forward-looking guidance."
+                ></textarea>
+                <div class="saved-prompts-buttons" id="savedPromptsButtons">
+                    <!-- Saved prompt buttons will appear here -->
+                </div>
+            </div>
+
+            <!-- Area 3: Control & Results Zone -->
+            <div class="panel results-panel">
+                <h2>Process & Results</h2>
+                <div class="control-buttons">
+                    <button class="btn btn-primary" id="parseBtn">Parse Transcripts</button>
+                    <button class="btn btn-secondary" id="clearBtn">Clear All</button>
+                </div>
+                <div class="results-container" id="resultsContainer">
+                    <p class="empty-state">Upload files and click "Parse Transcripts" to begin</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Marked.js for markdown to HTML conversion -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
