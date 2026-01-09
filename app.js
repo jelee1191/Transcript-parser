@@ -599,16 +599,10 @@ async function callLLM(prompt, text, onChunk) {
     const decoder = new TextDecoder();
     let fullResult = '';
     let buffer = '';
-    let chunksReceived = 0;
-
-    console.log('Frontend: Starting to read stream...');
 
     while (true) {
         const { done, value } = await reader.read();
-        if (done) {
-            console.log(`Frontend: Stream done. Total chunks received: ${chunksReceived}, Total chars: ${fullResult.length}`);
-            break;
-        }
+        if (done) break;
 
         // Use stream: true to handle multi-byte characters split across chunks
         buffer += decoder.decode(value, { stream: true });
@@ -629,16 +623,11 @@ async function callLLM(prompt, text, onChunk) {
                     }
 
                     if (parsed.chunk) {
-                        chunksReceived++;
                         fullResult += parsed.chunk;
                         // Call the callback with the new chunk
                         if (onChunk) {
                             onChunk(parsed.chunk, fullResult);
                         }
-                    }
-
-                    if (parsed.done) {
-                        console.log(`Frontend: Received done signal. Total chunks: ${chunksReceived}, Total chars: ${fullResult.length}`);
                     }
                 } catch (e) {
                     if (e.message && e.message !== 'Unexpected end of JSON input') {
@@ -655,7 +644,6 @@ async function callLLM(prompt, text, onChunk) {
         decoder.decode(); // Flush
     }
 
-    console.log(`Frontend: Returning result with ${fullResult.length} characters`);
     return fullResult;
 }
 

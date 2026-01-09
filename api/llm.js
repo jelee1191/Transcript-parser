@@ -66,19 +66,11 @@ async function streamOpenAI(prompt, text, modelName, res) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let chunksReceived = 0;
-    let chunksSent = 0;
-    let totalChars = 0;
 
     try {
         while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-                console.log(`OpenAI stream done. Chunks received from API: ${chunksReceived}`);
-                break;
-            }
-
-            chunksReceived++;
+            if (done) break;
 
             // Use stream: true to handle multi-byte characters split across chunks
             buffer += decoder.decode(value, { stream: true });
@@ -96,14 +88,10 @@ async function streamOpenAI(prompt, text, modelName, res) {
                         const parsed = JSON.parse(data);
                         const content = parsed.choices[0]?.delta?.content;
                         if (content) {
-                            totalChars += content.length;
-                            chunksSent++;
-                            // Forward chunk to client
                             res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                         }
                     } catch (e) {
-                        // Log parse errors for debugging
-                        console.error('OpenAI parse error:', e.message, 'Data:', data);
+                        // Skip malformed JSON
                     }
                 }
             }
@@ -113,8 +101,6 @@ async function streamOpenAI(prompt, text, modelName, res) {
         if (buffer.trim()) {
             decoder.decode(); // Flush decoder
         }
-
-        console.log(`OpenAI stream completed. Chunks sent to client: ${chunksSent}, Total chars: ${totalChars}`);
 
         // Send completion signal and end response together to ensure delivery
         res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -156,19 +142,11 @@ async function streamAnthropic(prompt, text, modelName, res) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let chunksReceived = 0;
-    let chunksSent = 0;
-    let totalChars = 0;
 
     try {
         while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-                console.log(`Anthropic stream done. Chunks received from API: ${chunksReceived}`);
-                break;
-            }
-
-            chunksReceived++;
+            if (done) break;
 
             // Use stream: true to handle multi-byte characters split across chunks
             buffer += decoder.decode(value, { stream: true });
@@ -188,18 +166,11 @@ async function streamAnthropic(prompt, text, modelName, res) {
                         if (parsed.type === 'content_block_delta') {
                             const content = parsed.delta?.text;
                             if (content) {
-                                totalChars += content.length;
-                                chunksSent++;
                                 res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                             }
                         }
-                        // Log when we receive the message_stop event
-                        if (parsed.type === 'message_stop') {
-                            console.log('Anthropic stream received message_stop event');
-                        }
                     } catch (e) {
-                        // Log parse errors for debugging
-                        console.error('Anthropic parse error:', e.message, 'Data:', data);
+                        // Skip malformed JSON
                     }
                 }
             }
@@ -209,8 +180,6 @@ async function streamAnthropic(prompt, text, modelName, res) {
         if (buffer.trim()) {
             decoder.decode(); // Flush decoder
         }
-
-        console.log(`Anthropic stream completed. Chunks sent to client: ${chunksSent}, Total chars: ${totalChars}`);
 
         // Send completion signal and end response together to ensure delivery
         res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -246,19 +215,11 @@ async function streamGemini(prompt, text, modelName, res) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let chunksReceived = 0;
-    let chunksSent = 0;
-    let totalChars = 0;
 
     try {
         while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-                console.log(`Gemini stream done. Chunks received from API: ${chunksReceived}`);
-                break;
-            }
-
-            chunksReceived++;
+            if (done) break;
 
             // Use stream: true to handle multi-byte characters split across chunks
             buffer += decoder.decode(value, { stream: true });
@@ -275,13 +236,10 @@ async function streamGemini(prompt, text, modelName, res) {
                         const parsed = JSON.parse(data);
                         const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (content) {
-                            totalChars += content.length;
-                            chunksSent++;
                             res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                         }
                     } catch (e) {
-                        // Log parse errors for debugging
-                        console.error('Gemini parse error:', e.message, 'Data:', data);
+                        // Skip malformed JSON
                     }
                 }
             }
@@ -291,8 +249,6 @@ async function streamGemini(prompt, text, modelName, res) {
         if (buffer.trim()) {
             decoder.decode(); // Flush decoder
         }
-
-        console.log(`Gemini stream completed. Chunks sent to client: ${chunksSent}, Total chars: ${totalChars}`);
 
         // Send completion signal and end response together to ensure delivery
         res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
