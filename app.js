@@ -512,7 +512,10 @@ function updateSavedPromptsButtons() {
         return;
     }
 
-    savedPromptsButtons.innerHTML = savedPrompts.map(prompt => `
+    // Sort prompts alphabetically A-Z
+    const sortedPrompts = [...savedPrompts].sort((a, b) => a.name.localeCompare(b.name));
+
+    savedPromptsButtons.innerHTML = sortedPrompts.map(prompt => `
         <button class="prompt-button" data-promptname="${escapeHtml(prompt.name)}">
             ${escapeHtml(prompt.name)}
         </button>
@@ -527,12 +530,13 @@ function loadPromptByName(promptName) {
 
         // Highlight the active button
         document.querySelectorAll('.prompt-button').forEach(btn => {
-            btn.classList.remove('active');
+            // Compare dataset values directly (no escaping issues)
+            if (btn.dataset.promptname === promptName) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
         });
-        const activeBtn = document.querySelector(`[data-promptname="${escapeHtml(promptName)}"]`);
-        if (activeBtn) {
-            activeBtn.classList.add('active');
-        }
 
         // Update button states since prompt was loaded programmatically
         updateButtonStates();
