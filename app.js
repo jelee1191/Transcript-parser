@@ -598,17 +598,22 @@ async function callLLM(prompt, text, onChunk) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullResult = '';
+    let buffer = '';
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        // Use stream: true to handle multi-byte characters split across chunks
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+            if (line.trim() && line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
 
                 try {
                     const parsed = JSON.parse(data);
@@ -632,6 +637,11 @@ async function callLLM(prompt, text, onChunk) {
                 }
             }
         }
+    }
+
+    // Flush decoder to handle any remaining bytes
+    if (buffer.trim()) {
+        decoder.decode(); // Flush
     }
 
     return fullResult;

@@ -63,17 +63,22 @@ async function streamOpenAI(prompt, text, modelName, res) {
     // Read streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        // Use stream: true to handle multi-byte characters split across chunks
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+            if (line.trim() && line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
                 if (data === '[DONE]') continue;
 
                 try {
@@ -84,10 +89,16 @@ async function streamOpenAI(prompt, text, modelName, res) {
                         res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                     }
                 } catch (e) {
-                    // Skip malformed JSON
+                    // Log parse errors for debugging
+                    console.error('OpenAI parse error:', e.message, 'Data:', data);
                 }
             }
         }
+    }
+
+    // Process any remaining data in buffer
+    if (buffer.trim()) {
+        decoder.decode(); // Flush decoder
     }
 }
 
@@ -122,17 +133,22 @@ async function streamAnthropic(prompt, text, modelName, res) {
     // Read streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        // Use stream: true to handle multi-byte characters split across chunks
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+            if (line.trim() && line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
 
                 try {
                     const parsed = JSON.parse(data);
@@ -145,10 +161,16 @@ async function streamAnthropic(prompt, text, modelName, res) {
                         }
                     }
                 } catch (e) {
-                    // Skip malformed JSON
+                    // Log parse errors for debugging
+                    console.error('Anthropic parse error:', e.message, 'Data:', data);
                 }
             }
         }
+    }
+
+    // Process any remaining data in buffer
+    if (buffer.trim()) {
+        decoder.decode(); // Flush decoder
     }
 }
 
@@ -177,17 +199,22 @@ async function streamGemini(prompt, text, modelName, res) {
     // Read streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        // Use stream: true to handle multi-byte characters split across chunks
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+            if (line.trim() && line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
 
                 try {
                     const parsed = JSON.parse(data);
@@ -196,9 +223,15 @@ async function streamGemini(prompt, text, modelName, res) {
                         res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                     }
                 } catch (e) {
-                    // Skip malformed JSON
+                    // Log parse errors for debugging
+                    console.error('Gemini parse error:', e.message, 'Data:', data);
                 }
             }
         }
+    }
+
+    // Process any remaining data in buffer
+    if (buffer.trim()) {
+        decoder.decode(); // Flush decoder
     }
 }
