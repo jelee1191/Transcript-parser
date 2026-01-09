@@ -30,7 +30,8 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid provider' });
         }
 
-        res.end();
+        // Don't call res.end() here - each streaming function handles it
+        // to ensure all writes complete before closing the connection
     } catch (error) {
         console.error('LLM API Error:', error);
         // Send error as SSE event
@@ -103,9 +104,10 @@ async function streamOpenAI(prompt, text, modelName, res) {
             decoder.decode(); // Flush decoder
         }
 
-        // Send completion signal
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         console.log('OpenAI stream completed successfully');
+
+        // Send completion signal and end response together to ensure delivery
+        res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
     } catch (error) {
         console.error('OpenAI streaming error:', error);
         throw error;
@@ -188,9 +190,10 @@ async function streamAnthropic(prompt, text, modelName, res) {
             decoder.decode(); // Flush decoder
         }
 
-        // Send completion signal
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         console.log('Anthropic stream completed successfully');
+
+        // Send completion signal and end response together to ensure delivery
+        res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
     } catch (error) {
         console.error('Anthropic streaming error:', error);
         throw error;
@@ -259,9 +262,10 @@ async function streamGemini(prompt, text, modelName, res) {
             decoder.decode(); // Flush decoder
         }
 
-        // Send completion signal
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         console.log('Gemini stream completed successfully');
+
+        // Send completion signal and end response together to ensure delivery
+        res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
     } catch (error) {
         console.error('Gemini streaming error:', error);
         throw error;
