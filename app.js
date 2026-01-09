@@ -570,8 +570,8 @@ async function handleDeletePrompt() {
     await deleteUserPrompt(name);
 }
 
-// LLM API Integration
-async function callLLM(prompt, text) {
+// LLM API Integration with STREAMING support
+async function callLLM(prompt, text, onChunk) {
     // Get selected provider and model from UI
     const provider = providerSelect.value;
     const modelName = modelInput.value.trim();
@@ -594,8 +594,47 @@ async function callLLM(prompt, text) {
         throw new Error(error.error || `Server error: ${response.statusText}`);
     }
 
-    const data = await response.json();
-    return data.result;
+    // Read streaming response
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResult = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+
+                try {
+                    const parsed = JSON.parse(data);
+
+                    if (parsed.error) {
+                        throw new Error(parsed.error);
+                    }
+
+                    if (parsed.chunk) {
+                        fullResult += parsed.chunk;
+                        // Call the callback with the new chunk
+                        if (onChunk) {
+                            onChunk(parsed.chunk, fullResult);
+                        }
+                    }
+                } catch (e) {
+                    if (e.message && e.message !== 'Unexpected end of JSON input') {
+                        throw e;
+                    }
+                    // Skip malformed JSON
+                }
+            }
+        }
+    }
+
+    return fullResult;
 }
 
 // Control Handlers
@@ -641,8 +680,12 @@ async function handleParse() {
             currentResults[index].statusText = 'Processing with LLM...';
             updateResultsDisplay();
 
-            // Call LLM API
-            const result = await callLLM(prompt, pdfText);
+            // Call LLM API with streaming callback
+            const result = await callLLM(prompt, pdfText, (chunk, fullResult) => {
+                // Update the output in real-time as chunks arrive
+                currentResults[index].output = fullResult;
+                updateResultsDisplay();
+            });
 
             // Update result
             currentResults[index].status = 'complete';
