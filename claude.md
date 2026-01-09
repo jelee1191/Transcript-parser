@@ -102,13 +102,13 @@ Beyond the original 8 phases, significant enhancements have been added:
 - **Files:** `api/llm.js`, `api/config.js`, `vercel.json`
 
 #### Phase 11: Multi-Provider UI Selection ✅
-- Dropdown selector for LLM provider (Gemini/OpenAI)
+- Dropdown selector for LLM provider (Gemini/OpenAI/Claude)
 - Custom model name input field with placeholders
 - Real-time provider switching without code changes
 - Default model fallback for each provider
 - Responsive model settings panel
 - **Files:** `index.html:76-90`, `app.js:56-58`, `app.js:591-616`, `styles.css:244-264`
-- **Note:** Claude/Anthropic hidden from UI due to Vercel timeout issues (backend code intact)
+- **Note:** All three providers now available with streaming support
 
 #### Phase 12: Performance & UX Optimizations ✅
 - **Parallel Processing:** Process all PDFs concurrently instead of sequentially (~10x faster)
@@ -119,6 +119,17 @@ Beyond the original 8 phases, significant enhancements have been added:
 - **Smart Text Cleaning:** cleanOutput() function removes LLM response indentation artifacts
 - **Header Centering:** CSS Grid ensures title stays centered with auth buttons
 - **Files:** `app.js:629-665` (parallel), `styles.css` (compact/dark), `app.js:740-764, 818-833` (text cleaning/HTML)
+
+#### Phase 13: Streaming Implementation & Timeout Resolution ✅
+- **Server-Sent Events (SSE) streaming** for all three LLM providers
+- **Real-time response display:** Text appears word-by-word as LLM generates
+- **Vercel timeout configuration:** Increased maxDuration from 60s to 300s (5 minutes)
+- **Critical fix:** Proper line buffering with `{ stream: true }` on TextDecoder
+- **Response completion signals:** Backend sends done event, each function manages res.end()
+- **Re-enabled Claude/Anthropic:** Now works without timeout issues
+- **Token limit increase:** Raised from 8192 to 16000 for complete responses
+- **Files:** `api/llm.js` (streaming functions), `app.js:573-648` (client streaming), `vercel.json` (maxDuration: 300)
+- **Key lesson:** Vercel Pro supports 300s for streaming, but requires explicit configuration
 
 ## Technical Architecture
 
@@ -140,9 +151,9 @@ Beyond the original 8 phases, significant enhancements have been added:
 - Supabase JS Client v2 - Authentication and database
 
 **APIs:**
-- OpenAI Chat Completions API (gpt-5.1 default)
-- Google Gemini Generative Language API (gemini-3-pro-preview default)
-- Anthropic Messages API (claude-sonnet-4-5-20250929 - hidden from UI, backend functional)
+- OpenAI Chat Completions API (gpt-5.1 default) - Streaming enabled
+- Google Gemini Generative Language API (gemini-3-pro-preview default) - Streaming enabled
+- Anthropic Messages API (claude-sonnet-4-5-20250929 default) - Streaming enabled
 - Supabase Auth & Database API
 
 **Storage:**
@@ -199,11 +210,13 @@ transcript-parser/
    - Provides both `text/plain` and `text/html` to clipboard
    - Ensures good formatting when pasting into OneNote
 
-6. **Backend API Proxy**
+6. **Backend API Proxy** ✅ STREAMING
    - Chosen: Vercel Serverless Functions
    - Why: Zero-cost hosting, automatic scaling, secure environment variables
-   - Trade-off: 60-second timeout (Pro tier) - causes issues with Claude on long transcripts
+   - Implementation: Server-Sent Events (SSE) streaming for real-time responses
+   - Timeout: Configured to 300 seconds (5 min) for Vercel Pro streaming support
    - Keeps API keys completely secure from client access
+   - All providers stream responses to prevent timeouts on long transcripts
 
 7. **UI Design Philosophy**
    - Dark mode: Professional dark gray (#1a1a1a) background
@@ -250,10 +263,10 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 - `loadPromptByName()` - Populates textarea from saved prompt
 
 **LLM Integration:**
-- `callLLM()` - Sends request to backend API with selected provider/model
-- Backend `callOpenAI()` - OpenAI-specific API call (api/llm.js)
-- Backend `callAnthropic()` - Anthropic-specific API call (api/llm.js)
-- Backend `callGemini()` - Gemini-specific API call (api/llm.js)
+- `callLLM()` - Streams request from backend API with selected provider/model, handles SSE parsing
+- Backend `streamOpenAI()` - OpenAI streaming with Server-Sent Events (api/llm.js)
+- Backend `streamAnthropic()` - Anthropic streaming with content_block_delta events (api/llm.js)
+- Backend `streamGemini()` - Gemini streaming via streamGenerateContent endpoint (api/llm.js)
 
 **Batch Processing:**
 - `handleParse()` - Main orchestration function
@@ -268,35 +281,47 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 
 ## Feature Highlights
 
-### 1. Multi-Provider LLM Support with UI Selection
-The implementation supports **three** providers (two visible in UI) with **runtime selection**:
-- **OpenAI** (default: `gpt-5.1`) - Visible in UI ✅
-- **Google Gemini** (default: `gemini-3-pro-preview`) - Visible in UI ✅
-- **Anthropic** (default: `claude-sonnet-4-5-20250929`) - Hidden from UI ⚠️
+### 1. Multi-Provider LLM Support with Streaming
+The implementation supports **three** providers with **runtime selection** and **streaming**:
+- **OpenAI** (default: `gpt-5.1`) - Streaming enabled ✅
+- **Google Gemini** (default: `gemini-3-pro-preview`) - Streaming enabled ✅
+- **Anthropic Claude** (default: `claude-sonnet-4-5-20250929`) - Streaming enabled ✅
 
 **UI Features:**
-- Dropdown selector with Gemini and OpenAI options
-- Custom model name input field
+- Dropdown selector with all three providers (Gemini/OpenAI/Claude)
+- Custom model name input field with provider-specific placeholders
 - Default model used if input is empty
-- Selection sent to backend with each request
+- Selection sent to backend with each streaming request
 
-**Claude/Anthropic Status:**
-- Backend code fully functional and maintained
-- Hidden from UI due to Vercel timeout issues (>60s for long transcripts)
-- Can be re-enabled by adding back to dropdown
-- Tokens are consumed but responses timeout on Vercel Pro tier
+**Streaming Implementation:**
+- All providers use Server-Sent Events (SSE) for real-time responses
+- Text appears word-by-word as LLM generates (better UX)
+- Prevents Vercel timeout issues on long transcripts
+- Configured for 300-second max duration (Vercel Pro limit)
 
 **Configuration (Vercel Environment Variables):**
 ```bash
 GEMINI_API_KEY=your-key-here
 OPENAI_API_KEY=sk-your-key-here
-ANTHROPIC_API_KEY=sk-ant-your-key-here  # Optional, backend code exists
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional model overrides
 GEMINI_MODEL=gemini-3-pro-preview
 OPENAI_MODEL=gpt-5.1
 ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
 ```
+
+**Vercel Configuration (vercel.json):**
+```json
+{
+  "functions": {
+    "api/llm.js": {
+      "maxDuration": 300
+    }
+  }
+}
+```
+**Critical:** The `maxDuration: 300` setting is essential for streaming to work on long transcripts. Vercel Pro supports up to 300 seconds for streaming responses.
 
 ### 2. Smart Prompt Management with Cloud Sync
 **Authenticated Users (Supabase):**
@@ -394,12 +419,11 @@ From Phase 8 "Polish":
 
 ### Current Limitations
 
-1. **Claude/Anthropic Timeouts** ⚠️
-   - Issue: Claude Sonnet 4.5 takes >60 seconds to respond
-   - Impact: Vercel Pro tier has 60-second function timeout
-   - Status: Hidden from UI, backend code functional
-   - Workaround: Use OpenAI or Gemini (both fast)
-   - Future: Upgrade to Vercel Enterprise (900s timeout) or use faster Claude models
+1. ~~**Claude/Anthropic Timeouts**~~ - RESOLVED ✅
+   - Issue: Claude Sonnet 4.5 was taking >60 seconds, exceeding Vercel default timeout
+   - Solution: Implemented Server-Sent Events streaming + configured maxDuration to 300s
+   - Status: All three providers (OpenAI, Gemini, Claude) now work without timeout issues
+   - Streaming provides real-time feedback and prevents connection timeouts
 
 2. **Public Access**
    - Anyone with the URL can use the deployed app
@@ -653,8 +677,9 @@ This transcript parser implementation successfully delivers on all core requirem
 
 **Key Achievements:**
 - ✅ All 8 original specification phases completed
-- ✅ **4 additional enhancement phases** (auth, backend, UI selection, performance/UX)
-- ✅ Support for 3 major LLM providers (2 active: OpenAI, Gemini)
+- ✅ **5 additional enhancement phases** (auth, backend, UI selection, performance/UX, streaming)
+- ✅ Support for **all 3 major LLM providers** (OpenAI, Gemini, Claude) - All active ✅
+- ✅ **Server-Sent Events streaming** - Real-time responses, no timeout issues
 - ✅ **Parallel processing** - ~10x faster than sequential
 - ✅ **Secure backend architecture** with environment variables
 - ✅ **User authentication** with cloud-synced prompts
@@ -662,17 +687,21 @@ This transcript parser implementation successfully delivers on all core requirem
 - ✅ **HTML preview rendering** - formatted display with styling
 - ✅ Robust error handling
 - ✅ Rich clipboard support for OneNote
-- ✅ **Production-ready** Vercel deployment
+- ✅ **Production-ready** Vercel deployment with 300s timeout
 
 **Architecture Highlights:**
 - ✅ **Zero API key exposure** - All keys server-side only
 - ✅ **Serverless backend** - Scalable, zero-cost hosting
 - ✅ **Database integration** - Supabase for user data
 - ✅ **Parallel execution** - Promise.all() for concurrent processing
+- ✅ **Streaming responses** - SSE implementation for all providers
+- ✅ **Proper timeout configuration** - Vercel maxDuration: 300s
 - ✅ **Modern deployment** - GitHub → Vercel CI/CD
 
 **Performance Achievements:**
 - ✅ **10x faster processing** with parallel execution
+- ✅ **Real-time streaming** - Text appears as LLM generates
+- ✅ **No timeout issues** - 300s limit handles long transcripts
 - ✅ **Compact UI** fits on single screen without scrolling
 - ✅ **Smart text cleaning** removes indentation artifacts
 - ✅ **HTML rendering** provides polished preview experience
@@ -681,16 +710,36 @@ This transcript parser implementation successfully delivers on all core requirem
 - Production-ready and deployed
 - Optimized for single-user personal use
 - ~10 files per batch, <50 files per day typical usage
-- Claude/Anthropic available via code but hidden from UI (timeout issues)
+- All three LLM providers fully functional with streaming support
 
 The codebase is well-organized, highly optimized, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides excellent performance while maintaining simplicity and security.
 
-**Total Lines of Code:** ~1,600 lines (including backend and optimizations)
-**Development Time:** Estimated 24-30 hours (including all enhancements)
+**Total Lines of Code:** ~1,750 lines (including backend, streaming, and optimizations)
+**Development Time:** Estimated 28-35 hours (including all 13 phases)
 **Browser Support:** Modern browsers (Chrome, Firefox, Safari, Edge)
 **Deployment:** Vercel Pro (production), localhost (development)
 
+## Key Lessons Learned
+
+1. **Vercel Streaming Configuration is Critical**
+   - Default timeout is 60 seconds even with streaming responses
+   - Must explicitly set `maxDuration` in vercel.json to enable longer timeouts
+   - Vercel Pro supports up to 300 seconds for streaming responses
+   - Without this config, streaming won't prevent timeouts on long-running tasks
+
+2. **Streaming Implementation Details Matter**
+   - Must use `{ stream: true }` on TextDecoder.decode() to handle multi-byte UTF-8 characters
+   - Line buffering is essential for Server-Sent Events parsing
+   - Each streaming function should handle its own res.end() to prevent race conditions
+   - Combine final write with res.end() to ensure completion signal delivery
+
+3. **Debugging Streaming Issues**
+   - Add comprehensive logging at both backend and frontend
+   - Compare chunk counts and character totals at each stage
+   - Check Vercel function logs for timeout errors
+   - Browser console shows if frontend is receiving all data from backend
+
 ---
 
-*Last Updated: 2026-01-08 (Final)*
-*Status: Production - Feature Complete*
+*Last Updated: 2026-01-09 (Final - Streaming Complete)*
+*Status: Production - Feature Complete - All Providers Active*
