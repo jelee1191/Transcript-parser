@@ -629,6 +629,10 @@ async function callLLM(prompt, text, onChunk) {
                             onChunk(parsed.chunk, fullResult);
                         }
                     }
+
+                    if (parsed.done) {
+                        console.log('Stream completed - received done signal');
+                    }
                 } catch (e) {
                     if (e.message && e.message !== 'Unexpected end of JSON input') {
                         throw e;
