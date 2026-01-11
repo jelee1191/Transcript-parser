@@ -1,0 +1,122 @@
+Please create a summary of this earnings transcript in several parts. There will be prepared remarks with different speakers, such as the CEO and CFO, followed at the end by Q&A.
+ 
+	1. Please create sections for each set of prepared remarks for each speaker. If there is an introduction by the operator and investor relations executive, do not include it as it is unnecessary. If there are no prepared remarks for a speaker, do not include a section for them. These sections should be arranged chronologically by how they appear in the transcript. 
+	2. Please then summarize the Q&A section.
+		○ Please include every single question and answer in the Q&A. I will be very upset if you do not include every single question. If a questioner asks follow-up questions, include those as well as if it were a separate question, even if the respondent does not answer the question.
+		○ Do NOT miss any questions!
+	3. Throughout all of your notes, please provide as much detail as possible on any numbers, financial figures, and forward looking guidance or estimates. Do not just rewrite the transcript; be concise with the narrative. The output should be at least 2 pages long and no more than 3 pages long.
+	4. Do not write what the speakers are saying as if you are telling a story ("Asked about…" or "Noted that…" or "Remarked that…").
+	5. Do not use different font sizes. Do not put spaces when writing numbers or percentages, i.e. write "$100m" not "$100 m" and "5.0%" and not "5.0 %". Do not use any tables - I am using this in OneNote and it needs to be easily pastable, readable text.
+	6. Do not write anything else or offer to do anything else after the end of the transcript summary. I am copying and pasting the entire message into OneNote and will just delete anything else you write. I REPEAT. DO NOT WRITE ANYTHING ELSE AFTER THE SUMMARY.
+	7. Follow the below markdown format:
+ 
+[TICKER] [QUARTER] earnings
+[Date in m/d/yy format]
+ 
+ 
+ **CEO ([NAME])**
+* Point 1
+* Point 2
+* Etc.
+ 
+ 
+**CFO ([NAME])**
+* Point 1
+* Point 2
+* Etc.
+ 
+ 
+**Q&A**
+* ([SPEAKER NAME] - [SPEAKER FIRM]) Q[x].[y]: "[ ]?"
+	- ([RESPONDENT NAME]) Response point 1
+	- Response point 2
+* Etc.
+ 
+	8. Below is a sample output:
+AMZN 4Q24 earnings
+2/6/25
+ 
+ 
+**CEO (Andy Jassy)**
+* Reported Q4 revenue of $187.8B, up 10% year-over-year (11% in constant currency)
+	- Noted $700M more FX headwind than expected
+* Operating income $21.2B, up 61% year-over-year; TTM free cash flow $36.2B, up $700M year-over-year
+* North America (NA) Stores revenue up 10% year-over-year; International revenue up 9% year-over-year in constant currency
+* Advertising revenue at $17.3B in Q4 (18% growth YOY), now over $69B annual run rate
+	- Growing streaming ad offerings (e.g., ads in Prime Video), plus multi-touch attribution tools and Amazon Marketing Cloud
+* AWS now $115B annual run rate, up 19% year-over-year for Q4
+	- Envisions a future where “virtually every application has generative AI infused,” with inference as a core building block
+* Three-layer approach to AI:
+	- Chips/Infrastructure (bottom):
+		+ Using both third-party (NVIDIA) and in-house silicon (Trainium2)
+		+ Trainium2 instances can be 30–40% more price performant vs. current GPU-powered instances
+		+ Anthropic building future “frontier models” on Trainium2 with massive cluster (“Project Rainier”)
+	- Managed Model Services (middle):
+		+ Amazon Bedrock offers broad choice of foundation models (Anthropic, Stability, AI21, Amazon Nova, DeepSeek, etc.)
+		+ “Nova” is Amazon’s in-house family of frontier models: ~75% lower cost vs. other models in Bedrock
+	- Applications (top):
+		+ Amazon Q for software dev and enterprise transformations (e.g., migrations from mainframes, .NET to Linux)
+* Continues to see strong AWS traction in core non-AI areas: storage, compute, database, analytics (e.g., Aurora DSQL, S3 Tables, S3 Metadata, next-gen SageMaker)
+* Called 2024 a “very successful year” and looks forward to delivering more in 2025
+ 
+ 
+**CFO (Brian Olsavsky)**
+* $900m FX headwind in the quarter, $700m above guidance
+* North America segment Q4 revenue $115.6B (10% growth YOY); NA operating income $9.3B (8% margin, +190 bps YOY)
+* International segment Q4 revenue $43.4B (9% YOY growth in constant currency); Intl. operating income $1.3B (3% margin, +400 bps YOY)
+* Will continue to invest in experiences LT like Alexa, healthcare, grocery, Kuiper
+* AWS Q4 revenue $28.8B (+19% YOY), operating income $10.6B
+	- Cited continued traction across generative AI and non-AI workloads
+* Second consecutive year of reduced global cost to serve on a per-unit basis, helped by more efficient inventory placement and transportation optimization
+* Capital investments of $26.3B in Q4, mostly driven by AI infrastructure for AWS
+	- Expects a similar annualized CapEx rate (~$100B/year) for 2025, with the bulk for AWS AI/tech infrastructure
+	- Also investing in fulfillment capacity, same-day facilities, inbound network, robotics/automation
+* Q1 2025 guidance:
+	- Net sales $151B–$155.5B
+		+ Includes ~$2.1B negative FX impact YOY (~150 bps)
+		+ Also comps the extra leap-year day in Q1 2024 (adding $1.5B last year, ~120 bps effect)
+	- Operating income $14B–$18B
+* Depreciation/life updates for 2025:
+	- Shortening useful life of certain servers/network equipment from 6 years to 5 (reduces 2025 op income by $700M)
+	- Early retirement of a subset of servers/network gear (another $600M hit to 2025 op income)
+	- Increasing useful life of certain heavy equipment in fulfillment centers from 10 to 13 years (+$900M to 2025 op income)
+ 
+ 
+**Q&A**
+* (Mark Mahaney – Evercore ISI) Q1.1: “So Brian, is that $100B in CapEx we should think about for 2025?”
+	- (Andy Jassy) In Q4, we spent $26.3B on CapEx, which is representative of the annual 2025 rate
+	- Majority is AI-driven for AWS (data centers, chips, networking)
+	- Believes AI is a “once-in-a-lifetime” tech shift, worth significant investment
+	- Also investing in Stores’ network (same-day sites, rural delivery, robotics)
+* (Mark Mahaney – Evercore ISI) Q1.2: “Andy, is AWS growth currently constrained by supply issues? And if so, when might those loosen?”
+	- (Andy Jassy): AWS is growing at a multi–billion-dollar AI run rate, triple-digit % YOY
+	- Could grow faster if unconstrained (chips, power, motherboards all tight)
+	- Expects constraints to ease in the second half of 2025
+* (Eric Sheridan – Goldman Sachs) Q2.1: “With cost curve innovations (e.g., DeepSeek) lowering inference costs, how do you see that changing time-to-market or potential returns on AI?”
+	- (Andy Jassy): Impressed with DeepSeek’s model training/inference optimization, but everyone is iterating fast
+	- Lower AI compute costs (especially for inference) typically spur more total tech spending, not less
+	- Believes cost reductions in inference will enable many more AI-infused apps, benefiting AWS
+* (Doug Anmuth – JPMorgan) Q3.1: “How should we think about AWS margin long-term given recent fluctuations, plus higher gen AI investment?”
+	- (Brian Olsavsky): AWS margins have fluctuated (mid-20s to high-30s) and may remain lumpy
+	- Generative AI is early stage and more capital-intensive upfront, a near-term margin headwind
+	- Expects longer-term margins to normalize; continuing to push data-center efficiencies
+* (Doug Anmuth – JPMorgan) Q3.2: “On Stores, impact of sending less volume through UPS—are you managing that incremental shipping internally?”
+	- (Andy Jassy): UPS has been a partner for years; they appear to have walked away from some volume
+	- Amazon’s own logistics network can handle that volume
+* (Brian Nowak – Morgan Stanley) Q4.1: “Any new data points on robotics (e.g., Shreveport facility)? Timing on scalability and profitability gains?”
+	- (Andy Jassy): Been integrating robotics for years; seeing cost and productivity benefits already
+	- A next wave of half-dozen new robotics initiatives went live in Shreveport
+	- Encouraged by initial results and will expand to more facilities (new and retrofits)
+* (Brian Nowak – Morgan Stanley) Q4.2: “Bigger-picture generative AI: how will it change Amazon’s retail shopping experience in 2025?”
+	- (Andy Jassy): Two big AI usage buckets at Amazon: (1) Productivity/cost savings and (2) New experiences
+	- Cited generative AI for customer service chat, third-party listing creation, inventory forecasting, and robotics “brains”
+	- “Rufus,” the shopping assistant, along with visual search (Lens), personalized sizing, and new features for Thursday Night Football
+	- Over 1,000 AI apps in progress internally
+* (John Blackledge – TD Cowen) Q5.1: “Current speed of delivery—how much more room to go, and how does this affect everyday essentials? Also, any inbound network efficiencies expected this year?”
+	- (Andy Jassy): Faster delivery still boosts purchase frequency; no sign of diminishing returns
+	- Speed is crucial for everyday essentials and pharmacy, fueling more repeat usage
+	- Inbound network redesign just launched; already seeing cost-to-serve gains, more to come through 2025
+* (Michael Morton – MoffettNathanson) Q6.1: “You talked about infusing AI into e-commerce. What about potential disruption to the discovery funnel as agents/assistants emerge? Plans for Amazon to address that? And how does Rufus fit in?”
+	- (Andy Jassy): Many retailers, including Amazon, will define their own terms for agent integration
+	- Rufus helps customers find info quickly on product detail pages and reviews, plus personal orders
+	- Expect usage to grow throughout 2025
