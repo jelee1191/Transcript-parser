@@ -96,12 +96,12 @@ AMZN 4Q24 earnings
 
 
 **Q&A**
-* (Mark Mahaney – Evercore ISI) Q1.1: "So Brian, is that $100B in CapEx we should think about for 2025?"
+* (Mark Mahaney – Evercore ISI) Q1.1: "Should we think about $100B in CapEx for 2025?"
 	- (Andy Jassy) In Q4, we spent $26.3B on CapEx, which is representative of the annual 2025 rate
 	- Majority is AI-driven for AWS (data centers, chips, networking)
 	- Believes AI is a "once-in-a-lifetime" tech shift, worth significant investment
 	- Also investing in Stores' network (same-day sites, rural delivery, robotics)
-* (Mark Mahaney – Evercore ISI) Q1.2: "Andy, is AWS growth currently constrained by supply issues? And if so, when might those loosen?"
+* (Mark Mahaney – Evercore ISI) Q1.2: "Is AWS growth currently constrained by supply issues? And if so, when might those loosen?"
 	- (Andy Jassy): AWS is growing at a multi–billion-dollar AI run rate, triple-digit % YOY
 	- Could grow faster if unconstrained (chips, power, motherboards all tight)
 	- Expects constraints to ease in the second half of 2025
