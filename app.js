@@ -67,6 +67,18 @@ const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userEmail = document.getElementById('userEmail');
 
+// Settings DOM Elements
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const settingsModalClose = document.getElementById('settingsModalClose');
+
+// API Key management state
+var userApiKeys = {
+    openai: false,
+    anthropic: false,
+    gemini: false
+};
+
 // Toast notification helper
 let toastTimeout;
 function showToast(message, type = 'info') {
@@ -325,6 +337,175 @@ function deletePromptFromLocalStorage(name) {
 }
 
 // ============================================
+// API KEY MANAGEMENT FUNCTIONS
+// ============================================
+
+// Get the current user's access token for API calls
+async function getAuthToken() {
+    if (!supabaseClient || !currentUser) return null;
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session?.access_token || null;
+}
+
+// Get API endpoint URL for keys
+function getKeysApiUrl() {
+    return window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/keys'
+        : '/api/keys';
+}
+
+// Open settings modal
+function openSettingsModal() {
+    settingsModal.classList.add('visible');
+    loadUserApiKeyStatus();
+}
+
+// Close settings modal
+function closeSettingsModal() {
+    settingsModal.classList.remove('visible');
+    // Clear input fields
+    document.getElementById('openaiKeyInput').value = '';
+    document.getElementById('anthropicKeyInput').value = '';
+    document.getElementById('geminiKeyInput').value = '';
+}
+
+// Load user's API key status (which providers have keys configured)
+async function loadUserApiKeyStatus() {
+    if (!currentUser) return;
+
+    const token = await getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(getKeysApiUrl(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load API key status');
+        }
+
+        const data = await response.json();
+
+        // Reset status
+        userApiKeys = { openai: false, anthropic: false, gemini: false };
+
+        // Update status from response
+        if (data.keys) {
+            data.keys.forEach(key => {
+                userApiKeys[key.provider] = true;
+            });
+        }
+
+        updateApiKeyStatusUI();
+    } catch (error) {
+        console.error('Error loading API key status:', error);
+    }
+}
+
+// Update the UI to show which keys are configured
+function updateApiKeyStatusUI() {
+    const providers = ['openai', 'anthropic', 'gemini'];
+
+    providers.forEach(provider => {
+        const statusEl = document.getElementById(`${provider}KeyStatus`);
+        if (statusEl) {
+            if (userApiKeys[provider]) {
+                statusEl.textContent = 'Configured';
+                statusEl.className = 'api-key-status configured';
+            } else {
+                statusEl.textContent = 'Not configured';
+                statusEl.className = 'api-key-status not-configured';
+            }
+        }
+    });
+}
+
+// Save an API key
+async function saveApiKey(provider) {
+    const inputEl = document.getElementById(`${provider}KeyInput`);
+    const apiKey = inputEl.value.trim();
+
+    if (!apiKey) {
+        showToast('Please enter an API key', 'warning');
+        return;
+    }
+
+    const token = await getAuthToken();
+    if (!token) {
+        showToast('Please login first', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(getKeysApiUrl(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ provider, apiKey })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to save API key');
+        }
+
+        showToast(data.message || `${provider} API key saved`, 'success');
+        inputEl.value = '';
+        userApiKeys[provider] = true;
+        updateApiKeyStatusUI();
+    } catch (error) {
+        console.error('Error saving API key:', error);
+        showToast(error.message || 'Failed to save API key', 'error');
+    }
+}
+
+// Delete an API key
+async function deleteApiKey(provider) {
+    const token = await getAuthToken();
+    if (!token) {
+        showToast('Please login first', 'error');
+        return;
+    }
+
+    if (!userApiKeys[provider]) {
+        showToast(`No ${provider} API key to delete`, 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch(getKeysApiUrl(), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ provider })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete API key');
+        }
+
+        showToast(data.message || `${provider} API key deleted`, 'success');
+        userApiKeys[provider] = false;
+        updateApiKeyStatusUI();
+    } catch (error) {
+        console.error('Error deleting API key:', error);
+        showToast(error.message || 'Failed to delete API key', 'error');
+    }
+}
+
+// ============================================
 // INITIALIZE
 // ============================================
 
@@ -421,6 +602,23 @@ function setupEventListeners() {
             if (e.target === authModal) closeAuthModal();
         });
     }
+
+    // Settings modal
+    if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+    if (settingsModalClose) settingsModalClose.addEventListener('click', closeSettingsModal);
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettingsModal();
+        });
+    }
+
+    // API Key save/delete buttons
+    document.getElementById('openaiKeySaveBtn')?.addEventListener('click', () => saveApiKey('openai'));
+    document.getElementById('openaiKeyDeleteBtn')?.addEventListener('click', () => deleteApiKey('openai'));
+    document.getElementById('anthropicKeySaveBtn')?.addEventListener('click', () => saveApiKey('anthropic'));
+    document.getElementById('anthropicKeyDeleteBtn')?.addEventListener('click', () => deleteApiKey('anthropic'));
+    document.getElementById('geminiKeySaveBtn')?.addEventListener('click', () => saveApiKey('gemini'));
+    document.getElementById('geminiKeyDeleteBtn')?.addEventListener('click', () => deleteApiKey('gemini'));
 }
 
 // File Upload Handlers
@@ -580,11 +778,22 @@ async function callLLM(prompt, text, onChunk) {
     const provider = providerSelect.value;
     const modelName = modelInput.value.trim();
 
+    // Get auth token if user is logged in
+    const authToken = await getAuthToken();
+
+    // Build headers
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+
+    // Add auth header if logged in (to use user's API keys)
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const response = await fetch(API_CONFIG.backendUrl, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: headers,
         body: JSON.stringify({
             provider: provider,
             prompt: prompt,

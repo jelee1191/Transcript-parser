@@ -16,6 +16,7 @@
                 <div class="auth-section" id="authSection">
                     <div class="auth-user" id="authUser" style="display: none;">
                         <span class="user-email" id="userEmail"></span>
+                        <button class="btn btn-small btn-secondary" id="settingsBtn">Settings</button>
                         <button class="btn btn-small btn-secondary" id="logoutBtn">Logout</button>
                     </div>
                     <div class="auth-buttons" id="authButtons">
@@ -125,6 +126,67 @@
                     <div class="auth-toggle">
                         <span id="authToggleText">Don't have an account?</span>
                         <button class="btn-link" id="authToggleBtn">Sign up</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div class="modal" id="settingsModal">
+            <div class="modal-content modal-wide">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button class="modal-close" id="settingsModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <h3 class="settings-section-title">Your API Keys</h3>
+                    <p class="settings-description">Add your own API keys to use instead of the default keys. Your keys are encrypted and stored securely.</p>
+
+                    <div class="api-key-form">
+                        <div class="api-key-row">
+                            <div class="api-key-provider">
+                                <label>OpenAI</label>
+                                <span class="api-key-status" id="openaiKeyStatus"></span>
+                            </div>
+                            <div class="api-key-input-group">
+                                <input type="password" id="openaiKeyInput" class="form-control" placeholder="sk-...">
+                                <button class="btn btn-small btn-primary" id="openaiKeySaveBtn">Save</button>
+                                <button class="btn btn-small btn-danger" id="openaiKeyDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+
+                        <div class="api-key-row">
+                            <div class="api-key-provider">
+                                <label>Anthropic (Claude)</label>
+                                <span class="api-key-status" id="anthropicKeyStatus"></span>
+                            </div>
+                            <div class="api-key-input-group">
+                                <input type="password" id="anthropicKeyInput" class="form-control" placeholder="sk-ant-...">
+                                <button class="btn btn-small btn-primary" id="anthropicKeySaveBtn">Save</button>
+                                <button class="btn btn-small btn-danger" id="anthropicKeyDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+
+                        <div class="api-key-row">
+                            <div class="api-key-provider">
+                                <label>Google Gemini</label>
+                                <span class="api-key-status" id="geminiKeyStatus"></span>
+                            </div>
+                            <div class="api-key-input-group">
+                                <input type="password" id="geminiKeyInput" class="form-control" placeholder="AI...">
+                                <button class="btn btn-small btn-primary" id="geminiKeySaveBtn">Save</button>
+                                <button class="btn btn-small btn-danger" id="geminiKeyDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-info">
+                        <h4>Where to get API keys:</h4>
+                        <ul>
+                            <li><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API Keys</a></li>
+                            <li><a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic API Keys</a></li>
+                            <li><a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio (Gemini)</a></li>
+                        </ul>
                     </div>
                 </div>
             </div>

@@ -1,6 +1,117 @@
 // Vercel Serverless Function for LLM API Proxy
 // This keeps your API keys secure and protected from public abuse
 // Now with STREAMING support to prevent timeouts!
+// Supports user-provided API keys (encrypted in database)
+
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+
+// Encryption functions for decrypting user API keys
+const ALGORITHM = 'aes-256-gcm';
+
+function getEncryptionKey() {
+    const key = process.env.API_KEY_ENCRYPTION_SECRET;
+    if (!key || key.length !== 64) {
+        return null; // Encryption not configured
+    }
+    return Buffer.from(key, 'hex');
+}
+
+function decrypt(encryptedText) {
+    const key = getEncryptionKey();
+    if (!key) return null;
+
+    try {
+        const [ivHex, authTagHex, encrypted] = encryptedText.split(':');
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+        decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (error) {
+        console.error('Decryption error:', error);
+        return null;
+    }
+}
+
+// Get Supabase client for server-side operations
+function getSupabaseClient() {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+        return null;
+    }
+
+    return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+// Verify user token and get user ID
+async function verifyUserToken(supabase, authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        if (error || !user) {
+            return null;
+        }
+        return user.id;
+    } catch (error) {
+        return null;
+    }
+}
+
+// Get user's API key for a provider (if they have one saved)
+async function getUserApiKey(supabase, userId, provider) {
+    if (!supabase || !userId) return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('user_api_keys')
+            .select('encrypted_key')
+            .eq('user_id', userId)
+            .eq('provider', provider)
+            .single();
+
+        if (error || !data) return null;
+
+        return decrypt(data.encrypted_key);
+    } catch (error) {
+        console.error('Error fetching user API key:', error);
+        return null;
+    }
+}
+
+// Get the API key to use (user's key if available, otherwise environment variable)
+async function getApiKey(provider, supabase, userId) {
+    // First, try to get user's custom API key
+    if (supabase && userId) {
+        const userKey = await getUserApiKey(supabase, userId, provider);
+        if (userKey) {
+            return { key: userKey, isUserKey: true };
+        }
+    }
+
+    // Fall back to environment variable
+    let envKey;
+    switch (provider) {
+        case 'openai':
+            envKey = process.env.OPENAI_API_KEY;
+            break;
+        case 'anthropic':
+            envKey = process.env.ANTHROPIC_API_KEY;
+            break;
+        case 'gemini':
+            envKey = process.env.GEMINI_API_KEY;
+            break;
+    }
+
+    return { key: envKey, isUserKey: false };
+}
 
 export default async function handler(req, res) {
     // Only allow POST requests
@@ -15,17 +126,30 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Missing prompt or text' });
         }
 
+        // Initialize Supabase and check for user authentication
+        const supabase = getSupabaseClient();
+        const userId = supabase ? await verifyUserToken(supabase, req.headers.authorization) : null;
+
+        // Get API key (user's or default)
+        const { key: apiKey, isUserKey } = await getApiKey(provider, supabase, userId);
+
+        if (!apiKey) {
+            return res.status(400).json({
+                error: `No API key configured for ${provider}. ${userId ? 'Add your API key in Settings.' : 'Please login and add your API key, or contact the administrator.'}`
+            });
+        }
+
         // Set headers for streaming response
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         if (provider === 'openai') {
-            await streamOpenAI(prompt, text, modelName, res);
+            await streamOpenAI(prompt, text, modelName, res, apiKey);
         } else if (provider === 'anthropic') {
-            await streamAnthropic(prompt, text, modelName, res);
+            await streamAnthropic(prompt, text, modelName, res, apiKey);
         } else if (provider === 'gemini') {
-            await streamGemini(prompt, text, modelName, res);
+            await streamGemini(prompt, text, modelName, res, apiKey);
         } else {
             return res.status(400).json({ error: 'Invalid provider' });
         }
@@ -40,13 +164,13 @@ export default async function handler(req, res) {
     }
 }
 
-async function streamOpenAI(prompt, text, modelName, res) {
+async function streamOpenAI(prompt, text, modelName, res, apiKey) {
     const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.1';
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+            'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
             model,
@@ -110,18 +234,14 @@ async function streamOpenAI(prompt, text, modelName, res) {
     }
 }
 
-async function streamAnthropic(prompt, text, modelName, res) {
+async function streamAnthropic(prompt, text, modelName, res, apiKey) {
     const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
-
-    if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY environment variable is not set');
-    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'x-api-key': apiKey,
             'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
@@ -189,10 +309,10 @@ async function streamAnthropic(prompt, text, modelName, res) {
     }
 }
 
-async function streamGemini(prompt, text, modelName, res) {
+async function streamGemini(prompt, text, modelName, res, apiKey) {
     const model = modelName || process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
     const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${process.env.GEMINI_API_KEY}&alt=sse`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
