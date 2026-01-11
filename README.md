@@ -8,8 +8,9 @@ A simple webapp to batch process PDF transcripts (earnings calls, conference pre
 
 - **Batch Upload**: Upload multiple PDF files at once
 - **Alphabetized Display**: Files are automatically sorted alphabetically
-- **Prompt Management**: Save, load, and reuse your favorite prompts
+- **Prompt Management**: Save, load, and reuse your favorite prompts (includes default earnings call template)
 - **LLM Integration**: Support for Google Gemini, OpenAI GPT-4, and Anthropic Claude
+- **Parallel Processing**: Process multiple files simultaneously (~10x faster)
 - **Easy Export**: Preview and copy results to clipboard (formatted for OneNote)
 - **Simple UI**: Clean, intuitive interface with three main areas
 - **Free Hosting**: Deploy to Vercel for free internet access
@@ -66,10 +67,12 @@ Please summarize this earnings call transcript, highlighting:
 ```
 
 **Save Prompts for Reuse:**
-1. Type your prompt
-2. Click **Save**
-3. Enter a name for the prompt
-4. Select it from the dropdown next time
+- New users get a comprehensive "Earnings Call Summary" prompt automatically
+- Create custom prompts:
+  1. Type your prompt
+  2. Click **Save**
+  3. Enter a name for the prompt
+  4. Click the saved prompt button to load it anytime
 
 ### 3. Process Transcripts
 
@@ -117,12 +120,15 @@ transcript-parser/
 ├── styles.css          # Styling
 ├── app.js             # Frontend JavaScript
 ├── api/
-│   └── llm.js         # Vercel serverless function (backend)
+│   ├── llm.js         # Vercel serverless function - LLM proxy
+│   ├── keys.js        # Vercel serverless function - User API key management
+│   └── config.js      # Vercel serverless function - Supabase config
 ├── vercel.json        # Vercel configuration
 ├── .env               # Local environment variables (gitignored)
 ├── .env.example       # Environment variable template
 ├── spec.md            # Original project specification
-├── claude.md          # Implementation documentation
+├── CLAUDE.md          # Implementation documentation
+├── AUTH-SETUP.md      # Authentication setup guide
 ├── SIMPLE-DEPLOY.md   # Deployment guide
 └── README.md          # This file
 ```
@@ -169,9 +175,9 @@ Your Browser                    Vercel Serverless         LLM Provider
 ### Limitations
 
 - PDF files must contain extractable text (not scanned images)
-- Processing happens sequentially (one file at a time)
 - API rate limits apply based on your LLM provider
 - Large PDFs may take longer to process
+- Very large batches (50+ files) may hit provider rate limits
 
 ## Troubleshooting
 
@@ -192,12 +198,11 @@ Your Browser                    Vercel Serverless         LLM Provider
 - Redeploy on Vercel after changing environment variables
 
 ### Function timeout errors
-- Vercel free tier has 10s timeout per function
-- Long transcripts or complex prompts may timeout
+- Streaming is enabled with 300s timeout (requires Vercel Pro - $20/month)
+- Very long transcripts (100+ pages) may still timeout
 - Solutions:
-  - Use shorter transcripts
-  - Simplify prompts
-  - Upgrade to Vercel Pro ($20/month for 60s timeout)
+  - Split very large transcripts into smaller parts
+  - Simplify prompts to reduce processing time
 
 ### Can't deploy to Vercel
 - Make sure `vercel.json` and `api/llm.js` exist
@@ -207,13 +212,12 @@ Your Browser                    Vercel Serverless         LLM Provider
 ## Future Enhancements
 
 Potential features for future versions:
-- Parallel processing (multiple files at once)
 - Export results as CSV or JSON
 - Direct integration with OneNote API
 - Support for DOCX and TXT files
-- Dark mode
 - Processing history
 - Token usage/cost tracking
+- Custom prompt templates library
 
 ## Support
 

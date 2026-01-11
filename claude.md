@@ -131,6 +131,15 @@ Beyond the original 8 phases, significant enhancements have been added:
 - **Files:** `api/llm.js` (streaming functions), `app.js:573-648` (client streaming), `vercel.json` (maxDuration: 300)
 - **Key lesson:** Vercel Pro supports 300s for streaming, but requires explicit configuration
 
+#### Phase 14: Default Prompt for New Users ✅
+- **Automatic default prompt:** New users get "Earnings Call Summary" prompt automatically
+- **Comprehensive template:** 3-page detailed instructions for earnings transcript summarization
+- **Dual implementation:** Works for both authenticated users (database) and guest users (localStorage)
+- **One-time addition:** Only added if user has zero saved prompts
+- **User-editable:** Can be modified or deleted like any other saved prompt
+- **Files:** `app.js:11-136` (DEFAULT_PROMPT constant), `app.js:363-396` (addDefaultPrompt function)
+- **Benefit:** Eliminates blank-slate experience, provides immediate value and usage example
+
 ## Technical Architecture
 
 ### Technology Stack
@@ -166,17 +175,18 @@ Beyond the original 8 phases, significant enhancements have been added:
 
 ```
 transcript-parser/
-├── index.html          # Main HTML structure (169 lines)
-├── styles.css          # Complete styling (602 lines) - includes dark mode, compact UI, HTML preview styles
-├── app.js              # Frontend application logic (839 lines) - includes parallel processing, text cleaning
+├── index.html          # Main HTML structure (230 lines)
+├── styles.css          # Complete styling (745 lines) - includes dark mode, compact UI, HTML preview styles
+├── app.js              # Frontend application logic (1277 lines) - includes parallel processing, streaming, default prompt
 ├── api/
-│   ├── llm.js         # Vercel serverless function - LLM API proxy (118 lines)
-│   └── config.js      # Vercel serverless function - Supabase config (16 lines)
+│   ├── llm.js         # Vercel serverless function - LLM API proxy (379 lines)
+│   └── config.js      # Vercel serverless function - Supabase config (15 lines)
 ├── vercel.json        # Vercel deployment configuration
 ├── .env.example       # Environment variables template
 ├── spec.md            # Original specification
 ├── README.md          # User-facing documentation
 ├── SIMPLE-DEPLOY.md   # Deployment guide
+├── AUTH-SETUP.md      # Authentication setup guide
 └── CLAUDE.md          # This implementation documentation
 ```
 
@@ -397,6 +407,7 @@ Each file shows detailed progress (all files update in real-time simultaneously)
 11. **Toast Notification System** - Polished user feedback
 12. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
 13. **Production Deployment** - Vercel hosting with proper CI/CD
+14. **Default Prompt for New Users** - Automatic earnings call summary template on first use
 
 ### Spec Items Not Implemented
 
@@ -714,8 +725,8 @@ This transcript parser implementation successfully delivers on all core requirem
 
 The codebase is well-organized, highly optimized, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides excellent performance while maintaining simplicity and security.
 
-**Total Lines of Code:** ~1,750 lines (including backend, streaming, and optimizations)
-**Development Time:** Estimated 28-35 hours (including all 13 phases)
+**Total Lines of Code:** ~2,650 lines (including backend, streaming, optimizations, and default prompt)
+**Development Time:** Estimated 29-36 hours (including all 14 phases)
 **Browser Support:** Modern browsers (Chrome, Firefox, Safari, Edge)
 **Deployment:** Vercel Pro (production), localhost (development)
 
@@ -741,5 +752,5 @@ The codebase is well-organized, highly optimized, and successfully deployed. The
 
 ---
 
-*Last Updated: 2026-01-09 (Final - Streaming Complete)*
+*Last Updated: 2026-01-11 (Phase 14 - Default Prompt Added)*
 *Status: Production - Feature Complete - All Providers Active*
