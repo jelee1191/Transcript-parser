@@ -865,7 +865,7 @@ function loadSavedPrompts() {
             // Remove old defaults that no longer exist, add new ones
             const defaultNames = new Set(DEFAULT_PROMPTS.map(p => p.name));
             // Keep any user-created prompts (not in old or new defaults)
-            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set();
+            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set(['Earnings Call Summary']);
             savedPrompts = savedPrompts.filter(p => !oldDefaultNames.has(p.name));
             // Add all current defaults
             DEFAULT_PROMPTS.forEach(p => {
