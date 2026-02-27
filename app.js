@@ -639,11 +639,19 @@ async function init() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
-    // Load default prompts from JSON file
+    // Load default prompts from text file
     try {
-        const resp = await fetch('./default-prompts.json');
+        const resp = await fetch('./default-prompts.txt');
         if (resp.ok) {
-            DEFAULT_PROMPTS = await resp.json();
+            const raw = await resp.text();
+            DEFAULT_PROMPTS = raw.split('===PROMPT===')
+                .filter(s => s.trim())
+                .map(block => {
+                    const sepIndex = block.indexOf('---\n');
+                    const name = block.substring(0, sepIndex).trim();
+                    const text = block.substring(sepIndex + 4).trimEnd();
+                    return { name, text };
+                });
         }
     } catch (e) {
         console.warn('Could not load default prompts:', e);
@@ -856,30 +864,30 @@ function loadSavedPrompts() {
         savedPrompts = [];
     }
 
-    // One-time cleanup: remove legacy hardcoded default prompt
-    if (!localStorage.getItem('legacyPromptCleaned')) {
-        savedPrompts = savedPrompts.filter(p => p.name !== 'Earnings Call Summary');
-        localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
-        localStorage.setItem('legacyPromptCleaned', '1');
-    }
-
-    // Check if default prompts need to be (re)loaded
-    // Uses a version key so defaults refresh when default-prompts.json changes
+    // Sync default prompts: refresh whenever default-prompts.txt changes
     if (DEFAULT_PROMPTS.length > 0) {
-        const currentVersion = DEFAULT_PROMPTS.map(p => p.name).sort().join('|');
-        const savedVersion = localStorage.getItem('defaultPromptsVersion');
-        if (savedVersion !== currentVersion) {
-            // Remove old defaults, keep user-created prompts
-            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set();
-            savedPrompts = savedPrompts.filter(p => !oldDefaultNames.has(p.name));
+        // Hash based on full content so any text or title change triggers refresh
+        const currentHash = DEFAULT_PROMPTS.map(p => p.name + ':' + p.text).join('\n');
+        const savedHash = localStorage.getItem('defaultPromptsHash');
+        if (savedHash !== currentHash) {
+            // Build set of default prompt names (old + new) to identify defaults vs user-created
+            const newDefaultNames = new Set(DEFAULT_PROMPTS.map(p => p.name));
+            const oldDefaultNames = new Set();
+            try {
+                const oldDefaults = JSON.parse(localStorage.getItem('defaultPromptNames') || '[]');
+                oldDefaults.forEach(n => oldDefaultNames.add(n));
+            } catch(e) {}
+            // Also remove legacy hardcoded prompt
+            oldDefaultNames.add('Earnings Call Summary');
+            // Keep only user-created prompts (not in old or new defaults)
+            savedPrompts = savedPrompts.filter(p => !oldDefaultNames.has(p.name) && !newDefaultNames.has(p.name));
             // Add all current defaults
             DEFAULT_PROMPTS.forEach(p => {
-                if (!savedPrompts.some(s => s.name === p.name)) {
-                    savedPrompts.push({ name: p.name, text: p.text });
-                }
+                savedPrompts.push({ name: p.name, text: p.text });
             });
             localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
-            localStorage.setItem('defaultPromptsVersion', currentVersion);
+            localStorage.setItem('defaultPromptsHash', currentHash);
+            localStorage.setItem('defaultPromptNames', JSON.stringify([...newDefaultNames]));
         }
     }
 
