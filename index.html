@@ -83,9 +83,11 @@
                         </select>
                     </div>
                     <div class="model-setting-group">
-                        <label for="modelInput">Model Name (optional)</label>
-                        <input type="text" id="modelInput" class="form-control" placeholder="e.g., gpt-5.2, gemini-3.1-pro-preview, claude-sonnet-4-6">
-                        <span class="form-hint">Leave blank for default model</span>
+                        <label for="modelInput">Model Name</label>
+                        <div class="model-input-row">
+                            <input type="text" id="modelInput" class="form-control" placeholder="e.g., gpt-5.2, gemini-3.1-pro-preview, claude-sonnet-4-6">
+                            <button class="btn btn-small btn-secondary" id="setDefaultModelBtn">Set Default</button>
+                        </div>
                     </div>
                 </div>
                 <div class="control-buttons">

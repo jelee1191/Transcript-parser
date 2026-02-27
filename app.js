@@ -153,12 +153,20 @@ if (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY)
 }
 // ============================================
 
+// Hardcoded fallback model defaults (used when user has no saved defaults)
+const FALLBACK_MODELS = {
+    gemini: 'gemini-3-flash-preview',
+    openai: 'gpt-5.2',
+    anthropic: 'claude-sonnet-4-6'
+};
+
 // State
 var uploadedFiles = [];
 var savedPrompts = [];
 var currentResults = [];
 var currentUser = null;
 var isAuthMode = 'login'; // 'login' or 'signup'
+var modelDefaults = {}; // provider → model_name
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
@@ -177,6 +185,7 @@ const toast = document.getElementById('toast');
 // Model settings DOM Elements
 const providerSelect = document.getElementById('providerSelect');
 const modelInput = document.getElementById('modelInput');
+const setDefaultModelBtn = document.getElementById('setDefaultModelBtn');
 
 // Auth DOM Elements
 const authModal = document.getElementById('authModal');
@@ -313,6 +322,8 @@ async function handleAuthSubmit(e) {
 
         closeAuthModal();
         await loadUserPrompts();
+        await loadModelDefaults();
+        applyModelDefault();
         updateAuthUI();
     } catch (error) {
         console.error('Auth error:', error);
@@ -334,8 +345,11 @@ async function handleLogout() {
 
     currentUser = null;
     savedPrompts = [];
+    modelDefaults = {};
     updateSavedPromptsButtons();
     updateAuthUI();
+    await loadModelDefaults();
+    applyModelDefault();
     showToast('Logged out successfully', 'success');
 }
 
@@ -508,6 +522,80 @@ async function getAuthToken() {
     return session?.access_token || null;
 }
 
+// ============================================
+// MODEL DEFAULTS FUNCTIONS
+// ============================================
+
+async function loadModelDefaults() {
+    if (supabaseClient && currentUser) {
+        // Load from Supabase
+        try {
+            const { data, error } = await supabaseClient
+                .from('user_model_defaults')
+                .select('provider, model_name')
+                .eq('user_id', currentUser.id);
+
+            if (!error && data) {
+                modelDefaults = {};
+                data.forEach(row => {
+                    modelDefaults[row.provider] = row.model_name;
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn('Could not load model defaults from database, using localStorage');
+        }
+    }
+
+    // Fallback to localStorage
+    const saved = localStorage.getItem('modelDefaults');
+    if (saved) {
+        try {
+            modelDefaults = JSON.parse(saved);
+        } catch (e) {
+            modelDefaults = {};
+        }
+    } else {
+        modelDefaults = {};
+    }
+}
+
+async function saveModelDefault(provider, modelName) {
+    modelDefaults[provider] = modelName;
+
+    if (supabaseClient && currentUser) {
+        // Upsert to Supabase
+        try {
+            const { error } = await supabaseClient
+                .from('user_model_defaults')
+                .upsert({
+                    user_id: currentUser.id,
+                    provider: provider,
+                    model_name: modelName,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id,provider' });
+
+            if (error) {
+                console.error('Error saving model default:', error);
+                showToast('Failed to save model default', 'error');
+                return;
+            }
+        } catch (e) {
+            console.error('Error saving model default:', e);
+        }
+    } else {
+        // Save to localStorage
+        localStorage.setItem('modelDefaults', JSON.stringify(modelDefaults));
+    }
+
+    showToast(`Default model for ${provider} set to "${modelName}"`, 'success');
+}
+
+function applyModelDefault() {
+    const provider = providerSelect.value;
+    modelInput.value = modelDefaults[provider] || FALLBACK_MODELS[provider] || '';
+}
+
 // Get API endpoint URL for keys
 function getKeysApiUrl() {
     return window.location.hostname === 'localhost'
@@ -677,21 +765,27 @@ async function init() {
 
     setupEventListeners();
     await checkAuth(); // Load user auth and prompts
+    await loadModelDefaults();
+    applyModelDefault();
     updateSavedPromptsButtons(); // Initialize buttons even if empty
     updateUI();
 
     // Listen for auth state changes
     if (supabaseClient) {
-        supabaseClient.auth.onAuthStateChange((event, session) => {
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN') {
                 currentUser = session.user;
-                loadUserPrompts();
+                await loadUserPrompts();
+                await loadModelDefaults();
+                applyModelDefault();
                 updateAuthUI();
             } else if (event === 'SIGNED_OUT') {
                 currentUser = null;
                 savedPrompts = [];
+                modelDefaults = {};
                 updateSavedPromptsButtons();
                 updateAuthUI();
+                loadModelDefaults().then(() => applyModelDefault());
             }
         });
     }
@@ -739,6 +833,18 @@ function setupEventListeners() {
             const index = parseInt(e.target.dataset.index);
             copyToClipboard(index);
         }
+    });
+
+    // Model defaults
+    providerSelect.addEventListener('change', applyModelDefault);
+    setDefaultModelBtn.addEventListener('click', () => {
+        const provider = providerSelect.value;
+        const model = modelInput.value.trim();
+        if (!model) {
+            showToast('Enter a model name first', 'warning');
+            return;
+        }
+        saveModelDefault(provider, model);
     });
 
     // Control buttons

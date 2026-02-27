@@ -128,6 +128,55 @@ CREATE INDEX user_api_keys_user_id_idx ON user_api_keys(user_id);
 3. Click "**Run**"
 4. You should see "Success. No rows returned"
 
+### Step 3c: Create the User Model Defaults Table (Optional)
+
+This table allows users to save their preferred default model for each LLM provider.
+
+1. Click "**+ New query**" again
+2. Copy and paste this SQL:
+
+```sql
+-- Create user_model_defaults table for storing per-provider model preferences
+CREATE TABLE user_model_defaults (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  provider TEXT NOT NULL,  -- 'openai', 'anthropic', or 'gemini'
+  model_name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, provider)  -- One default per provider per user
+);
+
+-- Enable Row Level Security
+ALTER TABLE user_model_defaults ENABLE ROW LEVEL SECURITY;
+
+-- Create policy: Users can only view their own defaults
+CREATE POLICY "Users can view own model defaults"
+  ON user_model_defaults FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Create policy: Users can insert their own defaults
+CREATE POLICY "Users can insert own model defaults"
+  ON user_model_defaults FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Create policy: Users can update their own defaults
+CREATE POLICY "Users can update own model defaults"
+  ON user_model_defaults FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Create policy: Users can delete their own defaults
+CREATE POLICY "Users can delete own model defaults"
+  ON user_model_defaults FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Create index for faster lookups
+CREATE INDEX user_model_defaults_user_id_idx ON user_model_defaults(user_id);
+```
+
+3. Click "**Run**"
+4. You should see "Success. No rows returned"
+
 ### Step 4: Get Your API Keys
 
 1. In Supabase, click "**Settings**" (gear icon in bottom left)

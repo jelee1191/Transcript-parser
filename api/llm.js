@@ -310,7 +310,7 @@ async function streamAnthropic(prompt, text, modelName, res, apiKey) {
 }
 
 async function streamGemini(prompt, text, modelName, res, apiKey) {
-    const model = modelName || process.env.GEMINI_MODEL || 'gemini-3.1-pro-preview';
+    const model = modelName || process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`,
         {
