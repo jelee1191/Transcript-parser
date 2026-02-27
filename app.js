@@ -1213,15 +1213,30 @@ async function copyToClipboard(index) {
     const htmlContent = convertMarkdownToHtml(text);
 
     try {
-        // Copy both plain text and HTML to clipboard
-        // This allows OneNote and other apps to use the rich formatting
-        await navigator.clipboard.write([
-            new ClipboardItem({
-                'text/plain': new Blob([text], { type: 'text/plain' }),
-                'text/html': new Blob([htmlContent], { type: 'text/html' })
-            })
-        ]);
-        showToast('Copied to clipboard', 'success');
+        // Use a temporary element + execCommand to copy HTML without source URL metadata
+        // This prevents OneNote from adding "<from url>" watermark
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.whiteSpace = 'pre-wrap';
+        document.body.appendChild(tempDiv);
+
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(tempDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const success = document.execCommand('copy');
+        selection.removeAllRanges();
+        document.body.removeChild(tempDiv);
+
+        if (success) {
+            showToast('Copied to clipboard', 'success');
+        } else {
+            throw new Error('execCommand copy failed');
+        }
     } catch (err) {
         // Fallback to plain text if rich clipboard fails
         console.error('Rich copy failed, falling back to plain text:', err);

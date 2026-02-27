@@ -160,9 +160,9 @@ Beyond the original 8 phases, significant enhancements have been added:
 - Supabase JS Client v2 - Authentication and database
 
 **APIs:**
-- OpenAI Chat Completions API (gpt-5.1 default) - Streaming enabled
-- Google Gemini Generative Language API (gemini-3-pro-preview default) - Streaming enabled
-- Anthropic Messages API (claude-sonnet-4-5-20250929 default) - Streaming enabled
+- OpenAI Chat Completions API (gpt-5.2 default) - Streaming enabled
+- Google Gemini Generative Language API (gemini-3.1-pro-preview default) - Streaming enabled
+- Anthropic Messages API (claude-sonnet-4-6 default) - Streaming enabled
 - Supabase Auth & Database API
 
 **Storage:**
@@ -293,9 +293,9 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 
 ### 1. Multi-Provider LLM Support with Streaming
 The implementation supports **three** providers with **runtime selection** and **streaming**:
-- **OpenAI** (default: `gpt-5.1`) - Streaming enabled ✅
-- **Google Gemini** (default: `gemini-3-pro-preview`) - Streaming enabled ✅
-- **Anthropic Claude** (default: `claude-sonnet-4-5-20250929`) - Streaming enabled ✅
+- **OpenAI** (default: `gpt-5.2`) - Streaming enabled ✅
+- **Google Gemini** (default: `gemini-3.1-pro-preview`) - Streaming enabled ✅
+- **Anthropic Claude** (default: `claude-sonnet-4-6`) - Streaming enabled ✅
 
 **UI Features:**
 - Dropdown selector with all three providers (Gemini/OpenAI/Claude)
@@ -316,9 +316,9 @@ OPENAI_API_KEY=sk-your-key-here
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional model overrides
-GEMINI_MODEL=gemini-3-pro-preview
-OPENAI_MODEL=gpt-5.1
-ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+GEMINI_MODEL=gemini-3.1-pro-preview
+OPENAI_MODEL=gpt-5.2
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 **Vercel Configuration (vercel.json):**

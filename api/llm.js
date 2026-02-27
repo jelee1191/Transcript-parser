@@ -165,7 +165,7 @@ export default async function handler(req, res) {
 }
 
 async function streamOpenAI(prompt, text, modelName, res, apiKey) {
-    const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.1';
+    const model = modelName || process.env.OPENAI_MODEL || 'gpt-5.2';
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -235,7 +235,7 @@ async function streamOpenAI(prompt, text, modelName, res, apiKey) {
 }
 
 async function streamAnthropic(prompt, text, modelName, res, apiKey) {
-    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
+    const model = modelName || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -310,7 +310,7 @@ async function streamAnthropic(prompt, text, modelName, res, apiKey) {
 }
 
 async function streamGemini(prompt, text, modelName, res, apiKey) {
-    const model = modelName || process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
+    const model = modelName || process.env.GEMINI_MODEL || 'gemini-3.1-pro-preview';
     const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`,
         {
