@@ -131,14 +131,22 @@ Beyond the original 8 phases, significant enhancements have been added:
 - **Files:** `api/llm.js` (streaming functions), `app.js:573-648` (client streaming), `vercel.json` (maxDuration: 300)
 - **Key lesson:** Vercel Pro supports 300s for streaming, but requires explicit configuration
 
-#### Phase 14: Default Prompt for New Users ✅
-- **Automatic default prompt:** New users get "Earnings Call Summary" prompt automatically
-- **Comprehensive template:** 3-page detailed instructions for earnings transcript summarization
+#### Phase 14: Default Prompts from File ✅
+- **5 preset prompts:** Earnings Transcript, Conference Presentation, Investor Day, Prepared Remarks, Q&A Followup
+- **External file:** Prompts stored in `default-prompts.txt` (plain text with `===PROMPT===` delimiters)
+- **Easy editing:** Just paste raw text into the file, no JSON escaping needed
+- **Content-based versioning:** Any change to titles or text auto-refreshes for all users on next visit
 - **Dual implementation:** Works for both authenticated users (database) and guest users (localStorage)
-- **One-time addition:** Only added if user has zero saved prompts
-- **User-editable:** Can be modified or deleted like any other saved prompt
-- **Files:** `app.js:11-136` (DEFAULT_PROMPT constant), `app.js:363-396` (addDefaultPrompt function)
-- **Benefit:** Eliminates blank-slate experience, provides immediate value and usage example
+- **Files:** `default-prompts.txt` (prompt content), `app.js:642-656` (txt parser), `app.js:859-884` (sync logic)
+
+#### Phase 15: Per-Provider Default Model Selection ✅
+- **Auto-fill model input:** Model name field auto-fills with saved default on provider switch
+- **"Set Default" button:** Users can save current model as default for the selected provider
+- **Dual storage:** Supabase `user_model_defaults` table (authenticated) or localStorage (guest)
+- **Hardcoded fallbacks:** `gemini-3-flash-preview`, `gpt-5.2`, `claude-sonnet-4-6` when no saved default
+- **Auth-aware:** Defaults reload on login/logout, synced across devices for authenticated users
+- **Files:** `app.js:156-161` (FALLBACK_MODELS), `app.js:525-597` (load/save/apply functions), `index.html:85-91` (UI), `styles.css:265-275` (styling)
+- **Database:** `user_model_defaults` table with RLS policies (SQL in AUTH-SETUP.md Step 3c)
 
 ## Technical Architecture
 
@@ -161,13 +169,13 @@ Beyond the original 8 phases, significant enhancements have been added:
 
 **APIs:**
 - OpenAI Chat Completions API (gpt-5.2 default) - Streaming enabled
-- Google Gemini Generative Language API (gemini-3.1-pro-preview default) - Streaming enabled
+- Google Gemini Generative Language API (gemini-3-flash-preview default) - Streaming enabled
 - Anthropic Messages API (claude-sonnet-4-6 default) - Streaming enabled
 - Supabase Auth & Database API
 
 **Storage:**
-- **Authenticated users:** Prompts in Supabase PostgreSQL database
-- **Guest users:** Prompts in localStorage (browser-based)
+- **Authenticated users:** Prompts and model defaults in Supabase PostgreSQL database
+- **Guest users:** Prompts and model defaults in localStorage (browser-based)
 - **Session data:** Uploaded files and results in memory (cleared on refresh)
 - **API keys:** Vercel environment variables (never exposed to frontend)
 
@@ -177,7 +185,8 @@ Beyond the original 8 phases, significant enhancements have been added:
 transcript-parser/
 ├── index.html          # Main HTML structure (230 lines)
 ├── styles.css          # Complete styling (745 lines) - includes dark mode, compact UI, HTML preview styles
-├── app.js              # Frontend application logic (1277 lines) - includes parallel processing, streaming, default prompt
+├── app.js              # Frontend application logic (~1160 lines) - includes parallel processing, streaming
+├── default-prompts.txt # Default preset prompts (plain text, delimited format)
 ├── api/
 │   ├── llm.js         # Vercel serverless function - LLM API proxy (379 lines)
 │   └── config.js      # Vercel serverless function - Supabase config (15 lines)
@@ -243,6 +252,7 @@ var savedPrompts = [];       // Array of {name, text, id?} objects
 var currentResults = [];     // Array of result objects with status
 var currentUser = null;      // Current authenticated user (Supabase)
 var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
+var modelDefaults = {};      // Map of provider → model_name
 ```
 
 ### Core Functions
@@ -262,6 +272,11 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 - `handleLogout()` - Signs out user and clears state
 - `updateAuthUI()` - Toggles login/logout button visibility
 - `openAuthModal()` / `closeAuthModal()` - Modal management
+
+**Model Defaults:**
+- `loadModelDefaults()` - Loads from Supabase (authenticated) or localStorage (guest)
+- `saveModelDefault()` - Upserts to Supabase or localStorage
+- `applyModelDefault()` - Sets model input to saved default or hardcoded fallback
 
 **Prompt Management:**
 - `loadSavedPrompts()` - Loads from localStorage (fallback)
@@ -294,13 +309,13 @@ var isAuthMode = 'login';    // Auth modal state: 'login' or 'signup'
 ### 1. Multi-Provider LLM Support with Streaming
 The implementation supports **three** providers with **runtime selection** and **streaming**:
 - **OpenAI** (default: `gpt-5.2`) - Streaming enabled ✅
-- **Google Gemini** (default: `gemini-3.1-pro-preview`) - Streaming enabled ✅
+- **Google Gemini** (default: `gemini-3-flash-preview`) - Streaming enabled ✅
 - **Anthropic Claude** (default: `claude-sonnet-4-6`) - Streaming enabled ✅
 
 **UI Features:**
 - Dropdown selector with all three providers (Gemini/OpenAI/Claude)
-- Custom model name input field with provider-specific placeholders
-- Default model used if input is empty
+- Custom model name input field with "Set Default" button
+- Model input auto-fills with saved default (or hardcoded fallback) on provider switch
 - Selection sent to backend with each streaming request
 
 **Streaming Implementation:**
@@ -316,7 +331,7 @@ OPENAI_API_KEY=sk-your-key-here
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 # Optional model overrides
-GEMINI_MODEL=gemini-3.1-pro-preview
+GEMINI_MODEL=gemini-3-flash-preview
 OPENAI_MODEL=gpt-5.2
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
@@ -407,7 +422,8 @@ Each file shows detailed progress (all files update in real-time simultaneously)
 11. **Toast Notification System** - Polished user feedback
 12. **Automatic Prompt Overwrite** - Simpler UX than confirmation dialog
 13. **Production Deployment** - Vercel hosting with proper CI/CD
-14. **Default Prompt for New Users** - Automatic earnings call summary template on first use
+14. **Default Prompts from File** - 5 preset prompts loaded from plain text file with auto-refresh on edit
+15. **Per-Provider Default Model Selection** - Save/restore preferred model per provider with "Set Default" button
 
 ### Spec Items Not Implemented
 
@@ -458,9 +474,10 @@ From Phase 8 "Polish":
    - Very large PDFs may cause browser slowdown
    - No progress indicator during PDF extraction
 
-4. **Provider/Model Selection** - PARTIALLY RESOLVED ✅
-   - UI includes provider dropdown and model name input
-   - Configuration still requires environment variables (Vercel dashboard)
+4. **Provider/Model Selection** - RESOLVED ✅
+   - UI includes provider dropdown and model name input with "Set Default" button
+   - Per-provider model defaults saved to Supabase or localStorage
+   - Model input auto-fills on provider switch
    - No in-app API key management (by design for security)
 
 ### Browser Compatibility
@@ -688,7 +705,7 @@ This transcript parser implementation successfully delivers on all core requirem
 
 **Key Achievements:**
 - ✅ All 8 original specification phases completed
-- ✅ **5 additional enhancement phases** (auth, backend, UI selection, performance/UX, streaming)
+- ✅ **7 additional enhancement phases** (auth, backend, UI selection, performance/UX, streaming, default prompt, model defaults)
 - ✅ Support for **all 3 major LLM providers** (OpenAI, Gemini, Claude) - All active ✅
 - ✅ **Server-Sent Events streaming** - Real-time responses, no timeout issues
 - ✅ **Parallel processing** - ~10x faster than sequential
@@ -725,8 +742,8 @@ This transcript parser implementation successfully delivers on all core requirem
 
 The codebase is well-organized, highly optimized, and successfully deployed. The vanilla JavaScript frontend with serverless backend provides excellent performance while maintaining simplicity and security.
 
-**Total Lines of Code:** ~2,650 lines (including backend, streaming, optimizations, and default prompt)
-**Development Time:** Estimated 29-36 hours (including all 14 phases)
+**Total Lines of Code:** ~2,820 lines (including backend, streaming, optimizations, default prompt, and model defaults)
+**Development Time:** Estimated 30-38 hours (including all 15 phases)
 **Browser Support:** Modern browsers (Chrome, Firefox, Safari, Edge)
 **Deployment:** Vercel Pro (production), localhost (development)
 
@@ -752,5 +769,5 @@ The codebase is well-organized, highly optimized, and successfully deployed. The
 
 ---
 
-*Last Updated: 2026-01-11 (Phase 14 - Default Prompt Added)*
+*Last Updated: 2026-02-27 (Phase 15 - Per-Provider Default Model Selection)*
 *Status: Production - Feature Complete - All Providers Active*
