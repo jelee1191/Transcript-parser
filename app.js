@@ -856,12 +856,26 @@ function loadSavedPrompts() {
         savedPrompts = [];
     }
 
-    // Add default prompts for new guest users (if they have no prompts)
-    if (savedPrompts.length === 0 && DEFAULT_PROMPTS.length > 0) {
-        DEFAULT_PROMPTS.forEach(p => {
-            savedPrompts.push({ name: p.name, text: p.text });
-        });
-        localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
+    // Check if default prompts need to be (re)loaded
+    // Uses a version key so defaults refresh when default-prompts.json changes
+    if (DEFAULT_PROMPTS.length > 0) {
+        const currentVersion = DEFAULT_PROMPTS.map(p => p.name).sort().join('|');
+        const savedVersion = localStorage.getItem('defaultPromptsVersion');
+        if (savedVersion !== currentVersion) {
+            // Remove old defaults that no longer exist, add new ones
+            const defaultNames = new Set(DEFAULT_PROMPTS.map(p => p.name));
+            // Keep any user-created prompts (not in old or new defaults)
+            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set();
+            savedPrompts = savedPrompts.filter(p => !oldDefaultNames.has(p.name));
+            // Add all current defaults
+            DEFAULT_PROMPTS.forEach(p => {
+                if (!savedPrompts.some(s => s.name === p.name)) {
+                    savedPrompts.push({ name: p.name, text: p.text });
+                }
+            });
+            localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
+            localStorage.setItem('defaultPromptsVersion', currentVersion);
+        }
     }
 
     updateSavedPromptsButtons();
