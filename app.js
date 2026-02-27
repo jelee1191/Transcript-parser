@@ -856,16 +856,21 @@ function loadSavedPrompts() {
         savedPrompts = [];
     }
 
+    // One-time cleanup: remove legacy hardcoded default prompt
+    if (!localStorage.getItem('legacyPromptCleaned')) {
+        savedPrompts = savedPrompts.filter(p => p.name !== 'Earnings Call Summary');
+        localStorage.setItem('savedPrompts', JSON.stringify(savedPrompts));
+        localStorage.setItem('legacyPromptCleaned', '1');
+    }
+
     // Check if default prompts need to be (re)loaded
     // Uses a version key so defaults refresh when default-prompts.json changes
     if (DEFAULT_PROMPTS.length > 0) {
         const currentVersion = DEFAULT_PROMPTS.map(p => p.name).sort().join('|');
         const savedVersion = localStorage.getItem('defaultPromptsVersion');
         if (savedVersion !== currentVersion) {
-            // Remove old defaults that no longer exist, add new ones
-            const defaultNames = new Set(DEFAULT_PROMPTS.map(p => p.name));
-            // Keep any user-created prompts (not in old or new defaults)
-            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set(['Earnings Call Summary']);
+            // Remove old defaults, keep user-created prompts
+            const oldDefaultNames = savedVersion ? new Set(savedVersion.split('|')) : new Set();
             savedPrompts = savedPrompts.filter(p => !oldDefaultNames.has(p.name));
             // Add all current defaults
             DEFAULT_PROMPTS.forEach(p => {
