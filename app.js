@@ -1213,30 +1213,14 @@ async function copyToClipboard(index) {
     const htmlContent = convertMarkdownToHtml(text);
 
     try {
-        // Use a temporary element + execCommand to copy HTML without source URL metadata
-        // This prevents OneNote from adding "<from url>" watermark
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlContent;
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.whiteSpace = 'pre-wrap';
-        document.body.appendChild(tempDiv);
-
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(tempDiv);
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        const success = document.execCommand('copy');
-        selection.removeAllRanges();
-        document.body.removeChild(tempDiv);
-
-        if (success) {
-            showToast('Copied to clipboard', 'success');
-        } else {
-            throw new Error('execCommand copy failed');
-        }
+        // Use clipboard API with explicit content types (no DOM styles leak through)
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/plain': new Blob([text], { type: 'text/plain' }),
+                'text/html': new Blob([htmlContent], { type: 'text/html' })
+            })
+        ]);
+        showToast('Copied to clipboard', 'success');
     } catch (err) {
         // Fallback to plain text if rich clipboard fails
         console.error('Rich copy failed, falling back to plain text:', err);
@@ -1259,13 +1243,12 @@ function convertMarkdownToHtml(text) {
             gfm: true      // GitHub Flavored Markdown
         });
 
-        const htmlBody = marked.parse(text);
-        return `<html><body>${htmlBody}</body></html>`;
+        return marked.parse(text);
     }
 
     // Fallback: just wrap plain text if marked isn't loaded
     const escaped = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-    return `<html><body>${escaped}</body></html>`;
+    return escaped;
 }
 
 function convertMarkdownToHtmlPreview(text) {
