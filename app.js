@@ -1099,10 +1099,10 @@ async function handleParse() {
         const totalSec = Math.floor(ms / 1000);
         const min = Math.floor(totalSec / 60);
         const sec = totalSec % 60;
-        return min > 0 ? `${min}:${String(sec).padStart(2, '0')}` : `${sec}s`;
+        return `${min}:${String(sec).padStart(2, '0')}`;
     }
     if (elapsedInterval) clearInterval(elapsedInterval);
-    elapsedTimer.textContent = '0s';
+    elapsedTimer.textContent = '0:00';
     elapsedInterval = setInterval(() => {
         elapsedTimer.textContent = formatElapsed(Date.now() - parseStartTime);
     }, 1000);
@@ -1132,9 +1132,6 @@ async function handleParse() {
             }, (status) => {
                 // Update status from backend signals
                 if (status === 'connected') {
-                    currentResults[index].statusText = 'Sending to LLM...';
-                    updateResultsDisplay();
-                } else if (status === 'thinking') {
                     currentResults[index].statusText = 'LLM is thinking...';
                     updateResultsDisplay();
                 }
