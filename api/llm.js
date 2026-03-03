@@ -182,7 +182,7 @@ async function streamOpenAI(prompt, text, modelName, res, apiKey) {
     });
 
     if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
@@ -253,9 +253,9 @@ async function streamAnthropic(prompt, text, modelName, res, apiKey) {
     });
 
     if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         console.error('Anthropic API error response:', JSON.stringify(error, null, 2));
-        throw new Error(`Anthropic API error: ${error.error?.message || error.message || JSON.stringify(error)}`);
+        throw new Error(`Anthropic API error: ${error.error?.message || error.message || response.statusText}`);
     }
 
     // Read streaming response
@@ -327,7 +327,7 @@ async function streamGemini(prompt, text, modelName, res, apiKey) {
     );
 
     if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
     }
 

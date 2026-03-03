@@ -981,18 +981,33 @@ async function callLLM(prompt, text, onChunk) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    const response = await fetch(API_CONFIG.backendUrl, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-            provider: provider,
-            prompt: prompt,
-            text: text,
-            modelName: modelName
-        })
-    });
+    // Abort controller with 5-minute timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
+    let response;
+    try {
+        response = await fetch(API_CONFIG.backendUrl, {
+            method: 'POST',
+            headers: headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+                provider: provider,
+                prompt: prompt,
+                text: text,
+                modelName: modelName
+            })
+        });
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+            throw new Error('Request timed out after 5 minutes');
+        }
+        throw e;
+    }
 
     if (!response.ok) {
+        clearTimeout(timeoutId);
         const error = await response.json().catch(() => ({ error: response.statusText }));
         throw new Error(error.error || `Server error: ${response.statusText}`);
     }
@@ -1003,48 +1018,80 @@ async function callLLM(prompt, text, onChunk) {
     let fullResult = '';
     let buffer = '';
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    // Per-chunk stale timeout: if no data arrives for 90 seconds, abort
+    let staleTimer = null;
+    const resetStaleTimer = () => {
+        if (staleTimer) clearTimeout(staleTimer);
+        staleTimer = setTimeout(() => {
+            controller.abort();
+        }, 90 * 1000);
+    };
+    resetStaleTimer();
 
-        // Use stream: true to handle multi-byte characters split across chunks
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
+    try {
+        while (true) {
+            let readResult;
+            try {
+                readResult = await reader.read();
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    throw new Error('Stream stalled - no data received for 90 seconds');
+                }
+                throw e;
+            }
+            const { done, value } = readResult;
+            if (done) break;
 
-        // Keep the last partial line in the buffer
-        buffer = lines.pop() || '';
+            resetStaleTimer();
 
-        for (const line of lines) {
-            if (line.trim() && line.startsWith('data: ')) {
-                const data = line.slice(6).trim();
+            // Use stream: true to handle multi-byte characters split across chunks
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
 
-                try {
-                    const parsed = JSON.parse(data);
+            // Keep the last partial line in the buffer
+            buffer = lines.pop() || '';
 
-                    if (parsed.error) {
-                        throw new Error(parsed.error);
-                    }
+            let serverDone = false;
+            for (const line of lines) {
+                if (line.trim() && line.startsWith('data: ')) {
+                    const data = line.slice(6).trim();
 
-                    if (parsed.chunk) {
-                        fullResult += parsed.chunk;
-                        // Call the callback with the new chunk
-                        if (onChunk) {
-                            onChunk(parsed.chunk, fullResult);
+                    try {
+                        const parsed = JSON.parse(data);
+
+                        if (parsed.error) {
+                            throw new Error(parsed.error);
                         }
+
+                        if (parsed.done) {
+                            serverDone = true;
+                            break;
+                        }
+
+                        if (parsed.chunk) {
+                            fullResult += parsed.chunk;
+                            // Call the callback with the new chunk
+                            if (onChunk) {
+                                onChunk(parsed.chunk, fullResult);
+                            }
+                        }
+                    } catch (e) {
+                        if (e.message && e.message !== 'Unexpected end of JSON input') {
+                            throw e;
+                        }
+                        // Skip malformed JSON
                     }
-                } catch (e) {
-                    if (e.message && e.message !== 'Unexpected end of JSON input') {
-                        throw e;
-                    }
-                    // Skip malformed JSON
                 }
             }
-        }
-    }
 
-    // Flush decoder to handle any remaining bytes
-    if (buffer.trim()) {
-        decoder.decode(); // Flush
+            // Break out of the loop when server signals completion
+            if (serverDone) break;
+        }
+    } finally {
+        clearTimeout(timeoutId);
+        if (staleTimer) clearTimeout(staleTimer);
+        // Ensure reader is released even if we broke out early
+        try { reader.cancel(); } catch (e) { /* ignore */ }
     }
 
     return fullResult;
