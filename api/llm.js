@@ -144,6 +144,10 @@ export default async function handler(req, res) {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
+        // Send initial status immediately to flush headers to the client
+        // This lets the frontend's fetch() resolve before the LLM API responds
+        res.write(`data: ${JSON.stringify({ status: 'connected' })}\n\n`);
+
         if (provider === 'openai') {
             await streamOpenAI(prompt, text, modelName, res, apiKey);
         } else if (provider === 'anthropic') {

@@ -1119,7 +1119,7 @@ async function handleParse() {
             const pdfText = await extractTextFromPDF(file);
 
             // Update status
-            currentResults[index].statusText = 'Sending to LLM...';
+            currentResults[index].statusText = 'Connecting to server...';
             updateResultsDisplay();
 
             // Call LLM API with streaming and status callbacks
@@ -1131,7 +1131,10 @@ async function handleParse() {
                 updateResultsDisplay();
             }, (status) => {
                 // Update status from backend signals
-                if (status === 'thinking') {
+                if (status === 'connected') {
+                    currentResults[index].statusText = 'Sending to LLM...';
+                    updateResultsDisplay();
+                } else if (status === 'thinking') {
                     currentResults[index].statusText = 'LLM is thinking...';
                     updateResultsDisplay();
                 }
