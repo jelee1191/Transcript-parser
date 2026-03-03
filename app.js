@@ -965,7 +965,7 @@ async function handleDeletePrompt() {
 }
 
 // LLM API Integration with STREAMING support
-async function callLLM(prompt, text, onChunk) {
+async function callLLM(prompt, text, onChunk, onStatus) {
     // Get selected provider and model from UI
     const provider = providerSelect.value;
     const modelName = modelInput.value.trim();
@@ -1031,6 +1031,10 @@ async function callLLM(prompt, text, onChunk) {
                     if (parsed.done) {
                         serverDone = true;
                         break;
+                    }
+
+                    if (parsed.status && onStatus) {
+                        onStatus(parsed.status);
                     }
 
                     if (parsed.chunk) {
@@ -1115,16 +1119,22 @@ async function handleParse() {
             const pdfText = await extractTextFromPDF(file);
 
             // Update status
-            currentResults[index].statusText = 'Waiting for LLM response...';
+            currentResults[index].statusText = 'Sending to LLM...';
             updateResultsDisplay();
 
-            // Call LLM API with streaming callback
+            // Call LLM API with streaming and status callbacks
             const result = await callLLM(prompt, pdfText, (chunk, fullResult) => {
                 // Update the output and status in real-time as chunks arrive
                 currentResults[index].output = fullResult;
                 const words = fullResult.split(/\s+/).length;
                 currentResults[index].statusText = `Streaming... ${words} words`;
                 updateResultsDisplay();
+            }, (status) => {
+                // Update status from backend signals
+                if (status === 'thinking') {
+                    currentResults[index].statusText = 'LLM is thinking...';
+                    updateResultsDisplay();
+                }
             });
 
             // Update result

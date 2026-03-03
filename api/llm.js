@@ -186,6 +186,9 @@ async function streamOpenAI(prompt, text, modelName, res, apiKey) {
         throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
+    // Signal that LLM has accepted the request and is thinking
+    res.write(`data: ${JSON.stringify({ status: 'thinking' })}\n\n`);
+
     // Read streaming response
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -257,6 +260,9 @@ async function streamAnthropic(prompt, text, modelName, res, apiKey) {
         console.error('Anthropic API error response:', JSON.stringify(error, null, 2));
         throw new Error(`Anthropic API error: ${error.error?.message || error.message || response.statusText}`);
     }
+
+    // Signal that LLM has accepted the request and is thinking
+    res.write(`data: ${JSON.stringify({ status: 'thinking' })}\n\n`);
 
     // Read streaming response
     const reader = response.body.getReader();
@@ -330,6 +336,9 @@ async function streamGemini(prompt, text, modelName, res, apiKey) {
         const error = await response.json().catch(() => ({}));
         throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
     }
+
+    // Signal that LLM has accepted the request and is thinking
+    res.write(`data: ${JSON.stringify({ status: 'thinking' })}\n\n`);
 
     // Read streaming response
     const reader = response.body.getReader();
