@@ -276,7 +276,14 @@ header h1 {
 .control-buttons {
     display: flex;
     gap: 10px;
+    align-items: center;
     margin-bottom: 12px;
+}
+
+.elapsed-timer {
+    font-size: 0.85rem;
+    color: #aaa;
+    font-variant-numeric: tabular-nums;
 }
 
 .btn {

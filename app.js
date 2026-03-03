@@ -43,6 +43,7 @@ var currentResults = [];
 var currentUser = null;
 var isAuthMode = 'login'; // 'login' or 'signup'
 var modelDefaults = {}; // provider → model_name
+var elapsedInterval = null; // Timer interval for elapsed time display
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
@@ -55,6 +56,7 @@ const savePromptBtn = document.getElementById('savePromptBtn');
 const deletePromptBtn = document.getElementById('deletePromptBtn');
 const parseBtn = document.getElementById('parseBtn');
 const clearBtn = document.getElementById('clearBtn');
+const elapsedTimer = document.getElementById('elapsedTimer');
 const resultsContainer = document.getElementById('resultsContainer');
 const toast = document.getElementById('toast');
 
@@ -1087,6 +1089,20 @@ async function handleParse() {
     parseBtn.disabled = true;
     parseBtn.textContent = 'Processing...';
 
+    // Start elapsed timer
+    const parseStartTime = Date.now();
+    function formatElapsed(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return min > 0 ? `${min}:${String(sec).padStart(2, '0')}` : `${sec}s`;
+    }
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    elapsedTimer.textContent = '0s';
+    elapsedInterval = setInterval(() => {
+        elapsedTimer.textContent = formatElapsed(Date.now() - parseStartTime);
+    }, 1000);
+
     // Process all files in parallel
     const processFile = async (file, index) => {
         try {
@@ -1103,13 +1119,11 @@ async function handleParse() {
             updateResultsDisplay();
 
             // Call LLM API with streaming callback
-            const streamStart = Date.now();
             const result = await callLLM(prompt, pdfText, (chunk, fullResult) => {
                 // Update the output and status in real-time as chunks arrive
                 currentResults[index].output = fullResult;
                 const words = fullResult.split(/\s+/).length;
-                const elapsed = Math.round((Date.now() - streamStart) / 1000);
-                currentResults[index].statusText = `Streaming... ${words} words (${elapsed}s)`;
+                currentResults[index].statusText = `Streaming... ${words} words`;
                 updateResultsDisplay();
             });
 
@@ -1132,6 +1146,11 @@ async function handleParse() {
         uploadedFiles.map((file, index) => processFile(file, index))
     );
 
+    // Stop elapsed timer and freeze at final time
+    clearInterval(elapsedInterval);
+    elapsedInterval = null;
+    elapsedTimer.textContent = formatElapsed(Date.now() - parseStartTime);
+
     // Re-enable parse button
     parseBtn.disabled = false;
     parseBtn.textContent = 'Parse Transcripts';
@@ -1145,6 +1164,11 @@ function handleClearAll() {
     // Clear without confirmation
     uploadedFiles = [];
     currentResults = [];
+    if (elapsedInterval) {
+        clearInterval(elapsedInterval);
+        elapsedInterval = null;
+    }
+    elapsedTimer.textContent = '';
     updateUI();
     showToast('All files and results cleared', 'success');
 }
