@@ -130,12 +130,22 @@ async function checkAuth() {
         return;
     }
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-        currentUser = session.user;
-        await loadUserPrompts();
-    } else {
-        loadSavedPrompts(); // Fallback to localStorage
+    try {
+        const result = await Promise.race([
+            supabaseClient.auth.getSession(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
+        ]);
+        const session = result.data?.session;
+        if (session) {
+            currentUser = session.user;
+            await loadUserPrompts();
+        } else {
+            loadSavedPrompts(); // Fallback to localStorage
+        }
+    } catch (e) {
+        console.warn('checkAuth failed, falling back to localStorage:', e.message);
+        currentUser = null;
+        loadSavedPrompts();
     }
     updateAuthUI();
 }
@@ -213,19 +223,24 @@ async function handleAuthSubmit(e) {
 }
 
 async function handleLogout() {
-    if (!supabaseClient) return;
-
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) {
-        showToast('Logout failed', 'error');
-        return;
-    }
-
+    // Always clear local state, even if Supabase signOut hangs
     currentUser = null;
     savedPrompts = [];
     modelDefaults = {};
     updateSavedPromptsButtons();
     updateAuthUI();
+
+    if (supabaseClient) {
+        try {
+            await Promise.race([
+                supabaseClient.auth.signOut(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('signOut timeout')), 5000))
+            ]);
+        } catch (e) {
+            console.warn('signOut timed out, clearing local session anyway:', e.message);
+        }
+    }
+
     await loadModelDefaults();
     applyModelDefault();
     showToast('Logged out successfully', 'success');
@@ -396,8 +411,16 @@ function deletePromptFromLocalStorage(name) {
 async function getAuthToken() {
     if (!supabaseClient || !currentUser) return null;
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    return session?.access_token || null;
+    try {
+        const result = await Promise.race([
+            supabaseClient.auth.getSession(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
+        ]);
+        return result.data?.session?.access_token || null;
+    } catch (e) {
+        console.warn('getAuthToken failed, proceeding without auth:', e.message);
+        return null;
+    }
 }
 
 // ============================================
@@ -970,15 +993,13 @@ async function callLLM(prompt, text, onChunk, onStatus) {
     const provider = providerSelect.value;
     const modelName = modelInput.value.trim();
 
-    // Get auth token if user is logged in
+    // Get auth token if available (needed for per-user API keys)
+    // Uses timeout so a stuck session never blocks parsing
     const authToken = await getAuthToken();
 
-    // Build headers
     const headers = {
         'Content-Type': 'application/json'
     };
-
-    // Add auth header if logged in (to use user's API keys)
     if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
