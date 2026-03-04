@@ -146,6 +146,7 @@ async function checkAuth() {
         console.warn('checkAuth failed, falling back to localStorage:', e.message);
         currentUser = null;
         loadSavedPrompts();
+        showToast('Session expired — please log out and log back in.', 'warning');
     }
     updateAuthUI();
 }
@@ -419,6 +420,7 @@ async function getAuthToken() {
         return result.data?.session?.access_token || null;
     } catch (e) {
         console.warn('getAuthToken failed, proceeding without auth:', e.message);
+        showToast('Session expired — using default API keys. Log out and back in to use your own keys.', 'warning');
         return null;
     }
 }
