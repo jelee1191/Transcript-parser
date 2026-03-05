@@ -44,6 +44,7 @@ var currentUser = null;
 var isAuthMode = 'login'; // 'login' or 'signup'
 var modelDefaults = {}; // provider → model_name
 var elapsedInterval = null; // Timer interval for elapsed time display
+var cachedAccessToken = null; // Cached Supabase access token (refreshed via onAuthStateChange)
 
 // DOM Elements
 const uploadZone = document.getElementById('uploadZone');
@@ -138,6 +139,7 @@ async function checkAuth() {
         const session = result.data?.session;
         if (session) {
             currentUser = session.user;
+            cachedAccessToken = session.access_token;
             await loadUserPrompts();
         } else {
             loadSavedPrompts(); // Fallback to localStorage
@@ -145,6 +147,7 @@ async function checkAuth() {
     } catch (e) {
         console.warn('checkAuth failed, falling back to localStorage:', e.message);
         currentUser = null;
+        cachedAccessToken = null;
         loadSavedPrompts();
         showToast('Session expired — please log out and log back in.', 'warning');
     }
@@ -226,6 +229,7 @@ async function handleAuthSubmit(e) {
 async function handleLogout() {
     // Always clear local state, even if Supabase signOut hangs
     currentUser = null;
+    cachedAccessToken = null;
     savedPrompts = [];
     modelDefaults = {};
     updateSavedPromptsButtons();
@@ -409,20 +413,11 @@ function deletePromptFromLocalStorage(name) {
 // ============================================
 
 // Get the current user's access token for API calls
-async function getAuthToken() {
-    if (!supabaseClient || !currentUser) return null;
-
-    try {
-        const result = await Promise.race([
-            supabaseClient.auth.getSession(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
-        ]);
-        return result.data?.session?.access_token || null;
-    } catch (e) {
-        console.warn('getAuthToken failed, proceeding without auth:', e.message);
-        showToast('Session expired — using default API keys. Log out and back in to use your own keys.', 'warning');
-        return null;
-    }
+// Uses cached token from onAuthStateChange instead of calling getSession()
+// which can hang when the Supabase SDK's background refresh gets stuck
+function getAuthToken() {
+    if (!currentUser) return null;
+    return cachedAccessToken || null;
 }
 
 // ============================================
@@ -694,14 +689,18 @@ async function init() {
     // Listen for auth state changes
     if (supabaseClient) {
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN') {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 currentUser = session.user;
-                await loadUserPrompts();
-                await loadModelDefaults();
-                applyModelDefault();
-                updateAuthUI();
+                cachedAccessToken = session.access_token;
+                if (event === 'SIGNED_IN') {
+                    await loadUserPrompts();
+                    await loadModelDefaults();
+                    applyModelDefault();
+                    updateAuthUI();
+                }
             } else if (event === 'SIGNED_OUT') {
                 currentUser = null;
+                cachedAccessToken = null;
                 savedPrompts = [];
                 modelDefaults = {};
                 updateSavedPromptsButtons();
@@ -990,14 +989,11 @@ async function handleDeletePrompt() {
 }
 
 // LLM API Integration with STREAMING support
-async function callLLM(prompt, text, onChunk, onStatus) {
+// authToken is passed in so we fetch it once before parallel processing
+async function callLLM(prompt, text, onChunk, onStatus, authToken) {
     // Get selected provider and model from UI
     const provider = providerSelect.value;
     const modelName = modelInput.value.trim();
-
-    // Get auth token if available (needed for per-user API keys)
-    // Uses timeout so a stuck session never blocks parsing
-    const authToken = await getAuthToken();
 
     const headers = {
         'Content-Type': 'application/json'
@@ -1130,6 +1126,10 @@ async function handleParse() {
         elapsedTimer.textContent = formatElapsed(Date.now() - parseStartTime);
     }, 1000);
 
+    // Fetch auth token ONCE before parallel processing to avoid
+    // concurrent getSession() calls that can deadlock the Supabase SDK
+    const authToken = await getAuthToken();
+
     // Process all files in parallel
     const processFile = async (file, index) => {
         try {
@@ -1158,7 +1158,7 @@ async function handleParse() {
                     currentResults[index].statusText = 'LLM is thinking...';
                     updateResultsDisplay();
                 }
-            });
+            }, authToken);
 
             // Update result
             currentResults[index].status = 'complete';
